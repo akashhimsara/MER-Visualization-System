@@ -1,0 +1,22 @@
+project:
+  name: Member1_MER
+  protocol_version: v1
+
+reproducibility:
+  primary_seed: 42
+  additional_seeds:
+    - 123
+    - 2026
+
+dataset:
+  split_level: song
+  test_set_locked: true
+
+evaluation:
+  valence_arousal_separate: true
+
+hardware:
+  reference_machine: hardware_environment_v1
+
+experiment:
+  naming_convention: EXP_<FAMILY>_<NUMBER>

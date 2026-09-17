@@ -1,0 +1,1 @@
+experiment_id,date,dataset_version,split_version,model,representation,context_seconds,hop_seconds,seed,mae_valence,mae_arousal,rmse_valence,rmse_arousal,pearson_valence,pearson_arousal,ccc_valence,ccc_arousal,r2_valence,r2_arousal,mean_latency_ms,p95_latency_ms,avg_cpu_percent,peak_cpu_percent,peak_ram_mb,hardware,code_commit,decision_notes
