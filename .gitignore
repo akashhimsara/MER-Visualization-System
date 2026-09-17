@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Raw / processed datasets
+data/raw/
+data/processed/
+
+# Large generated artifacts
+outputs/models/
+outputs/embeddings/
+
+# Temporary files
+*.tmp
+*.log
