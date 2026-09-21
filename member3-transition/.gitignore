@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test / coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files
+data/
+
+# Experiment results
+results/
+
+# Trained ML models
+*.joblib
+*.pkl
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
