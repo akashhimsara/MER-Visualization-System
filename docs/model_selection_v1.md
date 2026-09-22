@@ -142,3 +142,56 @@ Not frozen at this stage.
 
 These temporal parameters will be investigated experimentally during the
 temporal-experiment phase.
+
+## Feasibility Smoke Test
+
+Status:
+PASS
+
+Reference hardware:
+NVIDIA GeForce RTX 3050 Laptop GPU, 6 GB VRAM
+
+Test input:
+5 seconds of silent audio
+
+Sample rate:
+24,000 Hz
+
+Input samples:
+120,000
+
+Observed input tensor shape:
+(1, 120000)
+
+Observed final hidden-state shape:
+(1, 374, 768)
+
+Observed number of hidden-state tensors:
+13
+
+Peak GPU memory allocated during test:
+481.02 MB
+
+GPU memory allocated after inference:
+395.83 MB
+
+GPU memory reserved after inference:
+548.00 MB
+
+Result:
+MERT-v1-95M successfully completed a forward inference pass on the
+reference GPU.
+
+Conclusion:
+The model is technically feasible for frozen representation extraction
+on the reference machine.
+
+Important:
+This smoke test demonstrates technical execution only. It does not
+demonstrate Valence-Arousal prediction performance, real-time
+performance, or final model suitability.
+
+Checkpoint loading produced a positional-convolution weight
+parametrization warning. This warning will be retained as an environment
+observation and model outputs will be validated before formal
+experiments.
