@@ -1,3 +1,4 @@
+#MERT model eka mage computer eke hariyata wada karanawada?” kiyala test karana code eka.
 import torch
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
