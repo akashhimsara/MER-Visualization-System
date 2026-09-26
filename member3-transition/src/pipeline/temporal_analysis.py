@@ -42,5 +42,19 @@ class TemporalAnalyzer:
             "dominant_emotion": dominant_emotion,
             "average_confidence": round(average_confidence, 2),
             "sample_count": len(self.history),
-            "change_count": self.calculate_change_count()
+            "change_count": self.calculate_change_count(),
+            "persistence": self.calculate_persistence(dominant_emotion)
         }
+    def calculate_persistence(self, emotion):
+        if not self.history:
+            return 0.0
+
+        matching_count = 0
+
+        for item in self.history:
+            if item["emotion"] == emotion:
+                matching_count += 1
+
+        persistence = matching_count / len(self.history)
+
+        return round(persistence, 2)    

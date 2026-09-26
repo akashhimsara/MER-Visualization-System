@@ -45,13 +45,18 @@ class TransitionOrchestrator:
         # 2. Get smoothed emotion
         smoothed_emotion = self.smoother.get_smoothed_emotion()
 
-        # 3. Add data to temporal analyzer
+       # 3. Add data to temporal analyzer
         self.temporal_analyzer.add(
             timestamp,
             smoothed_emotion,
             confidence
         )
 
+        # Calculate persistence
+        persistence = self.temporal_analyzer.calculate_persistence(
+            smoothed_emotion
+        )
+        
         # 4. Detect meaningful emotion change
         emotion_changed = False
 
@@ -75,12 +80,12 @@ class TransitionOrchestrator:
         score = self.scorer.calculate_score(
             emotion_change=emotion_changed,
             confidence=confidence,
+            persistence=persistence,
             beat=beat,
             downbeat=downbeat,
             onset=onset,
             energy_change=energy_change
         )
-
         # 7. Check cooldown
         can_transition = self.continuity_controller.can_transition(
             timestamp
@@ -107,5 +112,6 @@ class TransitionOrchestrator:
             "candidate": candidate,
             "score": score,
             "can_transition": can_transition,
-            "transition": transition
+            "transition": transition,
+            "persistence": persistence,
         }
