@@ -108,6 +108,7 @@ class TransitionOrchestrator:
         return {
             "timestamp": timestamp,
             "emotion": smoothed_emotion,
+            "confidence": confidence,
             "emotion_changed": emotion_changed,
             "candidate": candidate,
             "score": score,
