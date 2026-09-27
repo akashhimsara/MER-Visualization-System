@@ -27,3 +27,6 @@ for frame in test_frames:
     )
 
     print(result)
+
+    assert result["score"] >= 0.0
+    assert result["persistence"] >= 0.0
