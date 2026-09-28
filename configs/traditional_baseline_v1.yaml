@@ -1,0 +1,60 @@
+version: v1
+
+task:
+  type: continuous_va_regression
+
+temporal:
+  context_seconds: 5.0
+  alignment: causal
+  interval: "[t-5.0, t]"
+
+audio:
+  analysis_sample_rate: 22050
+  mono: true
+
+stft:
+  n_fft: 2048
+  hop_length: 512
+
+features:
+  mfcc:
+    enabled: true
+    n_mfcc: 13
+
+  delta_mfcc:
+    enabled: true
+    n_mfcc: 13
+
+  chroma:
+    enabled: true
+    n_chroma: 12
+
+  rms:
+    enabled: true
+
+  spectral_centroid:
+    enabled: true
+
+  spectral_bandwidth:
+    enabled: true
+
+  spectral_rolloff:
+    enabled: true
+
+  zero_crossing_rate:
+    enabled: true
+
+aggregation:
+  statistics:
+    - mean
+    - std
+
+dimensions:
+  frame_level: 43
+  aggregated: 86
+
+data:
+  split_manifest: data/splits/deam_song_split_v1.csv
+  target_manifest: data/processed/deam_paired_va_targets_v1.csv
+  fit_scaler_on: train
+  test_locked: true
