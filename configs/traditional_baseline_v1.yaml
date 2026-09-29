@@ -58,3 +58,34 @@ data:
   target_manifest: data/processed/deam_paired_va_targets_v1.csv
   fit_scaler_on: train
   test_locked: true
+
+regression:
+  model: ridge
+  targets:
+    - valence
+    - arousal
+  separate_target_models: true
+
+  alpha_candidates:
+    - 0.01
+    - 0.1
+    - 1.0
+    - 10.0
+    - 100.0
+
+  selection_split: validation
+
+  metrics:
+    - mae
+    - rmse
+    - pearson
+    - ccc
+    - r2
+
+  test_usage: locked_until_final_configuration_freeze  
+
+  selected:
+    valence_alpha: 0.1
+    arousal_alpha: 100.0
+    selected_using: validation
+    test_evaluated: false  

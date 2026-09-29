@@ -127,3 +127,48 @@ an 86-dimensional fixed feature vector for each target timestamp.
 The 22,050 Hz analysis rate applies only to the engineered-feature baseline.
 It does not replace model-native preprocessing requirements of pretrained
 models.
+
+## Initial Regression Head
+
+The first engineered-feature regression baseline uses Ridge Regression.
+
+Separate regression models are fitted for Valence and Arousal. Feature
+standardization is fitted on TRAIN only.
+
+The initial regularization candidates are:
+
+- 0.01
+- 0.1
+- 1.0
+- 10.0
+- 100.0
+
+Candidate configurations are evaluated on VALIDATION only. The held-out TEST
+partition remains locked.
+
+Model selection is based on the complete continuous-regression evidence rather
+than classification accuracy. Required validation metrics are MAE, RMSE,
+Pearson correlation, CCC, and R² for Valence and Arousal separately.
+
+This Ridge model is a controlled lightweight reference baseline and is not
+assumed to be the globally optimal regressor.
+
+## EXP_TRAD_001 Validation Selection
+
+The initial Ridge candidate grid was evaluated using the frozen VALIDATION
+partition only. The held-out TEST partition was not evaluated.
+
+The selected target-specific regularization parameters are:
+
+- Valence: alpha = 0.1
+- Arousal: alpha = 100.0
+
+Valence performance was effectively unchanged between the smallest candidate
+values, while stronger regularization gradually reduced the validation
+metrics. Alpha 0.1 was retained as the deterministic Valence configuration.
+
+For Arousal, alpha 100.0 produced the strongest validation results among the
+tested candidates across the reported regression metrics.
+
+The selected parameters are validation-derived configuration choices and are
+not final TEST results.
