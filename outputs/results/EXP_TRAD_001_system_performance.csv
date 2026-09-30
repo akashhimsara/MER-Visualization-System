@@ -1,0 +1,5 @@
+experiment_id,run,measured_windows,feature_mean_ms,feature_p95_ms,inference_mean_ms,inference_p95_ms,end_to_end_mean_ms,end_to_end_p95_ms,avg_process_cpu_percent,peak_process_cpu_percent,peak_process_rss_mb,test_used
+EXP_TRAD_001,1,50,60.329,86.516,0.456,0.703,60.787,86.939,137.46,262.08,234.21,false
+EXP_TRAD_001,2,50,68.149,101.099,0.449,0.820,68.600,101.813,138.08,365.85,234.50,false
+EXP_TRAD_001,3,50,61.532,87.183,0.401,0.609,61.935,87.552,130.04,280.76,234.01,false
+EXP_TRAD_001,mean_of_runs,50,63.337,91.599,0.435,0.711,63.774,92.101,135.19,302.90,234.24,false
