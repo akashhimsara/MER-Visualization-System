@@ -10,12 +10,12 @@ import { createBeatController, triggerBeatPulse, updateBeatReactor } from '../vi
 import { AudioAnalyzer } from '../audio/audio-analyzer.js';
 import { EmotionVisualMapper } from '../ai/mapping-schema.js';
 import { EmotionAIModel } from '../ai/emotion-ai-model.js';
-import { updateSpectrumRing } from '../visuals/spectrum.js';
+import { VisualModeManager, VISUAL_MODES } from '../visuals/modes.js';
 
 /**
  * Engine manages the Three.js lifecycle: scene creation, camera setup, 
  * rendering, window resizing, particles, color, motion, lighting, emotion states,
- * audio reactivity, and real audio file analysis.
+ * audio reactivity, multi-mode 3D geometry morphing, and real audio file analysis.
  */
 export class Engine {
   constructor(containerElement) {
@@ -27,11 +27,14 @@ export class Engine {
     this.height = this.container.clientHeight || window.innerHeight;
 
     // Core Three.js components
-    const { scene, placeholderMesh, spectrumRing, bgFlareSprite } = createScene();
+    const { scene, placeholderMesh, bgFlareSprite } = createScene();
     this.scene = scene;
     this.placeholderMesh = placeholderMesh;
-    this.spectrumRing = spectrumRing;
     this.bgFlareSprite = bgFlareSprite;
+
+    // Initialize Multi-Mode 3D Geometry Manager (Equalizer, Tunnel, Crystal Core, Horizon Grid)
+    this.modeManager = new VisualModeManager(this.scene);
+    this.spectrumRing = this.modeManager.modes[VISUAL_MODES.EQUALIZER_RING];
 
     this.camera = createCamera(this.width, this.height);
     this.renderer = createRenderer(this.width, this.height);
@@ -87,12 +90,23 @@ export class Engine {
       scene: this.scene,
       camera: this.camera,
       placeholderMesh: this.placeholderMesh,
+      modeManager: this.modeManager,
       spectrumRing: this.spectrumRing,
       bgFlareSprite: this.bgFlareSprite,
       particles: this.particles,
       lighting: this.lighting,
       bloomPass: this.bloomPass
     };
+  }
+
+  /**
+   * Directly sets active 3D Visualizer Mode ('EQUALIZER_RING' | 'NEON_TUNNEL' | 'HOLOGRAPHIC_CORE' | 'HORIZON_GRID').
+   * @param {string} modeKey 
+   */
+  setVisualMode(modeKey) {
+    if (this.modeManager) {
+      this.modeManager.switchMode(modeKey);
+    }
   }
 
   /**
@@ -144,6 +158,7 @@ export class Engine {
 
   /**
    * Sets the active emotion state directly and locks user selection.
+   * Also morphs 3D visual geometry mode to match emotion.
    * 
    * @param {string} emotionName - 'CALM' | 'HAPPY' | 'ENERGETIC' | 'SAD'
    * @param {number} durationSeconds - Optional transition parameter
@@ -154,6 +169,9 @@ export class Engine {
       this.autoEmotionCycle = false; // Lock user selected emotion
     }
     setEmotionState(this.getEngineState(), emotionName);
+    if (this.modeManager) {
+      this.modeManager.setModeFromEmotion(emotionName);
+    }
   }
 
   /**
@@ -166,7 +184,7 @@ export class Engine {
 
   /**
    * Sets continuous Valence-Arousal AI emotion input coordinates (-1.0 to 1.0)
-   * and uses the AI Mapping Model to predict dynamic 3D visual parameters.
+   * and uses the AI Mapping Model to predict dynamic 3D visual parameters and 3D Visual Mode.
    * 
    * @param {number} valence - Positivity (-1.0 to 1.0)
    * @param {number} arousal - Energy (-1.0 to 1.0)
@@ -176,6 +194,11 @@ export class Engine {
     this.autoEmotionCycle = false; // Lock user AI slider control
     const predictedParams = this.aiModel ? this.aiModel.predict(valence, arousal) : EmotionVisualMapper.mapValenceArousalToVisuals(valence, arousal);
     this.updateVisualParameters(predictedParams);
+
+    if (predictedParams && predictedParams.predictedCategory && this.modeManager) {
+      this.modeManager.setModeFromEmotion(predictedParams.predictedCategory);
+    }
+
     return predictedParams;
   }
 
@@ -216,8 +239,10 @@ export class Engine {
     }
 
     // Analyze Real Audio Frequencies (if audio is playing)
+    let freqData = null;
     if (this.audioAnalyzer && this.audioAnalyzer.isPlaying) {
       const audioMetrics = this.audioAnalyzer.update(elapsedTime);
+      freqData = this.audioAnalyzer.frequencyData;
       
       // 1. Bass Frequency (Kick Drums): Trigger physical beat pulse
       if (audioMetrics.isBeat) {
@@ -245,10 +270,9 @@ export class Engine {
       }
     }
 
-    // Real-Time 3D Audio Frequency Waveform Spectrum Line Ring Update
-    if (this.spectrumRing) {
-      const freqData = (this.audioAnalyzer && this.audioAnalyzer.isPlaying && this.audioAnalyzer.frequencyData) ? this.audioAnalyzer.frequencyData : null;
-      updateSpectrumRing(this.spectrumRing, freqData, deltaTime, elapsedTime, this.beatController?.pulse || 0.0);
+    // Update 3D Visual Geometry Modes with real audio frequency & beat pulse
+    if (this.modeManager) {
+      this.modeManager.update(freqData, deltaTime, elapsedTime, this.beatController?.pulse || 0.0);
     }
 
     // Update audio-reactive EDM beat pulse reaction

@@ -25,15 +25,10 @@ export function createScene() {
   floorMesh.name = 'reflectiveFloor';
   scene.add(floorMesh);
 
-  // 2. Central 3D Circular Equalizer Ring System
-  const spectrumRing = createSpectrumRing();
-  spectrumRing.position.set(0, 0, 0);
-  scene.add(spectrumRing);
-
   // Empty placeholder group container for engine backwards compatibility
   const placeholderMesh = new THREE.Group();
   scene.add(placeholderMesh);
 
-  return { scene, placeholderMesh, spectrumRing, floorMesh };
+  return { scene, placeholderMesh, floorMesh };
 }
 

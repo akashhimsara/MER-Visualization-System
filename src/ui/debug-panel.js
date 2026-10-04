@@ -90,6 +90,17 @@ export function createDebugPanel(engineInstance) {
       </div>
     </div>
 
+    <!-- 3D Geometry Mode Selector -->
+    <div style="margin-bottom: 12px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 243, 255, 0.2);">
+      <div style="font-weight: 600; color: #00f3ff; margin-bottom: 6px;">🎮 3D Visualizer Mode</div>
+      <select id="visual-mode-select" style="width: 100%; padding: 6px; border-radius: 5px; border: 1px solid #00f3ff; background: rgba(0,243,255,0.1); color: #fff; cursor: pointer; font-weight: 600;">
+        <option value="EQUALIZER_RING" style="background: #111; color: #fff;">EQUALIZER RING (Happy)</option>
+        <option value="NEON_TUNNEL" style="background: #111; color: #fff;">NEON TUNNEL (Energetic)</option>
+        <option value="HOLOGRAPHIC_CORE" style="background: #111; color: #fff;">HOLOGRAPHIC CORE (Calm)</option>
+        <option value="HORIZON_GRID" style="background: #111; color: #fff;">HORIZON GRID (Sad)</option>
+      </select>
+    </div>
+
     <!-- Emotion Presets -->
     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #777; margin-bottom: 6px;">Select Emotion Preset</div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;">
@@ -161,6 +172,17 @@ export function createDebugPanel(engineInstance) {
   if (valSlider && aroSlider) {
     valSlider.addEventListener('input', updateAISliders);
     aroSlider.addEventListener('input', updateAISliders);
+  }
+
+  // Wire 3D Visualizer Mode Select Dropdown
+  const modeSelect = panel.querySelector('#visual-mode-select');
+  if (modeSelect) {
+    modeSelect.addEventListener('change', (e) => {
+      const selectedMode = e.target.value;
+      if (engineInstance.setVisualMode) {
+        engineInstance.setVisualMode(selectedMode);
+      }
+    });
   }
 
   // Wire Emotion Buttons

@@ -3,6 +3,7 @@ import { EMOTION_PRESETS } from './visuals/emotions.js';
 import { DEFAULT_VISUAL_PARAMS, VISUAL_PROFILES } from './visuals/parameters.js';
 import { createDebugPanel } from './ui/debug-panel.js';
 import { triggerBeatPulse } from './visuals/beat.js';
+import { VISUAL_MODES } from './visuals/modes.js';
 
 /**
  * Public Facade API for the AI-Assisted Emotion-Aware Visualization Engine.
@@ -58,6 +59,14 @@ export class VisualizationEngine {
   }
 
   /**
+   * Sets active 3D Visualizer Mode ('EQUALIZER_RING' | 'NEON_TUNNEL' | 'HOLOGRAPHIC_CORE' | 'HORIZON_GRID').
+   * @param {string} modeKey 
+   */
+  setVisualMode(modeKey) {
+    this.engine.setVisualMode(modeKey);
+  }
+
+  /**
    * Sets continuous Valence-Arousal AI emotion coordinates (-1.0 to 1.0)
    * and maps them dynamically to visual parameters using Russell's Circumplex Model.
    * 
@@ -96,4 +105,4 @@ export class VisualizationEngine {
 }
 
 // Export visual preset constants & helper modules
-export { EMOTION_PRESETS, VISUAL_PROFILES, DEFAULT_VISUAL_PARAMS, createDebugPanel, triggerBeatPulse };
+export { EMOTION_PRESETS, VISUAL_PROFILES, DEFAULT_VISUAL_PARAMS, createDebugPanel, triggerBeatPulse, VISUAL_MODES };
