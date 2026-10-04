@@ -9,6 +9,7 @@ import { EMOTION_PRESETS, setEmotionState } from '../visuals/emotions.js';
 import { createBeatController, triggerBeatPulse, updateBeatReactor } from '../visuals/beat.js';
 import { AudioAnalyzer } from '../audio/audio-analyzer.js';
 import { EmotionVisualMapper } from '../ai/mapping-schema.js';
+import { EmotionAIModel } from '../ai/emotion-ai-model.js';
 import { updateSpectrumRing } from '../visuals/spectrum.js';
 
 /**
@@ -55,6 +56,9 @@ export class Engine {
 
     // Initialize Real Audio Analyzer
     this.audioAnalyzer = new AudioAnalyzer();
+
+    // Initialize AI Mapping Model
+    this.aiModel = new EmotionAIModel();
 
     // Emotion Settings
     this.emotionKeys = Object.keys(EMOTION_PRESETS);
@@ -162,16 +166,17 @@ export class Engine {
 
   /**
    * Sets continuous Valence-Arousal AI emotion input coordinates (-1.0 to 1.0)
-   * and maps them dynamically to visual parameters.
+   * and uses the AI Mapping Model to predict dynamic 3D visual parameters.
    * 
    * @param {number} valence - Positivity (-1.0 to 1.0)
    * @param {number} arousal - Energy (-1.0 to 1.0)
+   * @returns {object} Predicted visual parameters vector
    */
   setValenceArousal(valence = 0.0, arousal = 0.0) {
     this.autoEmotionCycle = false; // Lock user AI slider control
-    const visualParams = EmotionVisualMapper.mapValenceArousalToVisuals(valence, arousal);
-    this.updateVisualParameters(visualParams);
-    return visualParams;
+    const predictedParams = this.aiModel ? this.aiModel.predict(valence, arousal) : EmotionVisualMapper.mapValenceArousalToVisuals(valence, arousal);
+    this.updateVisualParameters(predictedParams);
+    return predictedParams;
   }
 
   /**
