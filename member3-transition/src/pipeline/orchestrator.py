@@ -76,6 +76,15 @@ class TransitionOrchestrator:
             energy_change=energy_change
         )
 
+        # Which landmark triggered it - needed later to pick the
+        # transition's scale (major/minor), not used in the decision itself
+        candidate_type = self.candidate_generator.classify_candidate_type(
+            beat=beat,
+            downbeat=downbeat,
+            onset=onset,
+            energy_change=energy_change
+        )
+
         # 6. Calculate transition score
         score = self.scorer.calculate_score(
             emotion_change=emotion_changed,
@@ -92,8 +101,20 @@ class TransitionOrchestrator:
         )
 
         # 8. Final transition decision
+        #
+        # FIX: emotion_changed must be required here explicitly, not just
+        # fed into the score as one input among several. Without this,
+        # confidence (0.20) + persistence (0.15) + downbeat (0.15) +
+        # onset (0.05) + energy_change (0.05) = 0.60 on their own already
+        # clear the 0.50 threshold - meaning a transition could fire from
+        # musical activity ALONE, with zero emotion change, which
+        # contradicts the whole premise of an "Emotion-Based" Visual
+        # Transition System. Confirmed with a real test: nine frames of
+        # the same "Calm" emotion, high confidence, downbeat+onset+energy
+        # every time, and the old logic fired a transition on every one.
         transition = (
-            candidate
+            emotion_changed
+            and candidate
             and score >= 0.50
             and can_transition
         )
@@ -111,6 +132,7 @@ class TransitionOrchestrator:
             "confidence": confidence,
             "emotion_changed": emotion_changed,
             "candidate": candidate,
+            "candidate_type": candidate_type,
             "score": score,
             "can_transition": can_transition,
             "transition": transition,

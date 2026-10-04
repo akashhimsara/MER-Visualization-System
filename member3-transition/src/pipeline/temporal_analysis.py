@@ -1,9 +1,22 @@
-from collections import Counter
+from collections import Counter, deque
 
 
 class TemporalAnalyzer:
-    def __init__(self):
-        self.history = []
+    def __init__(self, window_size=50):
+        # FIX: this was a plain unbounded list before - every frame since
+        # the start of the song stayed in memory forever, and
+        # calculate_persistence()/calculate_change_count() re-scanned the
+        # WHOLE thing on every single call. For a real-time system meant
+        # to run for the length of a song (or longer, across songs in one
+        # session), that's an unbounded, ever-slowing operation - exactly
+        # what NFR01/NFR02 (real-time responsiveness, low latency) rule
+        # out. A bounded deque, same pattern already used correctly in
+        # smoothing.py, fixes both the memory growth and makes
+        # "persistence" mean what it should: how stable the emotion has
+        # been RECENTLY, not what fraction of the entire song-so-far it
+        # dominated (which makes the number less and less sensitive to
+        # real change the longer a session runs).
+        self.history = deque(maxlen=window_size)
 
     def add(self, timestamp, emotion, confidence):
         self.history.append({
