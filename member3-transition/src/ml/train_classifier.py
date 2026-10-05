@@ -1,3 +1,5 @@
+import joblib
+
 from sklearn.linear_model import LogisticRegression
 
 
@@ -30,6 +32,8 @@ if __name__ == "__main__":
     ]
 
     model = train_logistic_regression(X, y)
+    joblib.dump(model, "models/transition_model.pkl")
+    print("Model saved to models/transition_model.pkl")
 
     print("Logistic Regression model trained successfully!")
     print("Training samples:", len(X))

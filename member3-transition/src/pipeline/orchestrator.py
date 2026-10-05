@@ -4,11 +4,11 @@ from src.pipeline.change_detection import MeaningfulChangeDetector
 from src.pipeline.candidate_gen import TransitionCandidateGenerator
 from src.pipeline.scoring import TransitionScorer
 from src.pipeline.continuity import ContinuityController
-
+from src.ml.ml_transition_decider import predict_transition_suitability
 
 class TransitionOrchestrator:
 
-    def __init__(self):
+    def __init__(self, ml_model=None):
 
         self.smoother = EmotionSmoother(window_size=3)
 
@@ -27,6 +27,7 @@ class TransitionOrchestrator:
         )
 
         self.previous_emotion = None
+        self.ml_model = ml_model
 
     def process_frame(
         self,
@@ -112,13 +113,35 @@ class TransitionOrchestrator:
         # Transition System. Confirmed with a real test: nine frames of
         # the same "Calm" emotion, high confidence, downbeat+onset+energy
         # every time, and the old logic fired a transition on every one.
+        # ML suitability check
+        ml_suitable = True
+        ml_probability = 0.0
+
+        if self.ml_model is not None:
+            ml_result = predict_transition_suitability(
+                self.ml_model,
+                {
+                    "emotion_changed": emotion_changed,
+                    "confidence": confidence,
+                    "persistence": persistence,
+                    "candidate": candidate,
+                    "score": score,
+                    "can_transition": can_transition,
+                }
+            )
+
+            ml_suitable = ml_result["suitable"]
+            ml_probability = ml_result["probability"]
+
+        # Final transition decision
         transition = (
             emotion_changed
             and candidate
             and score >= 0.50
             and can_transition
+            and ml_suitable
         )
-
+    
         # 9. Record transition time
         if transition:
             self.continuity_controller.record_transition(timestamp)

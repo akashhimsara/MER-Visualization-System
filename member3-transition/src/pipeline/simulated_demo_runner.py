@@ -8,6 +8,7 @@ Simulated emotion stream + simulated musical structure
 Run with:
     python -m src.pipeline.simulated_demo_runner
 """
+import joblib
 
 from src.pipeline.orchestrator import TransitionOrchestrator
 from src.pipeline.transition_command import build_transition_command
@@ -36,7 +37,8 @@ def emotion_at(timestamp):
 
 
 def run_demo():
-    orchestrator = TransitionOrchestrator()
+    model = joblib.load("models/transition_model.pkl")
+    orchestrator = TransitionOrchestrator(ml_model=model)
 
     duration = EMOTION_SEGMENTS[-1][2]
 
