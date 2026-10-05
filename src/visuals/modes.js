@@ -246,8 +246,14 @@ export class VisualModeManager {
   setModeFromEmotion(emotionCategory, primaryColor, secondaryColor) {
     const liquidGroup = this.modes[VISUAL_MODES.LIQUID_CHROME_GALAXY];
     if (liquidGroup && liquidGroup.userData) {
-      const { liquidCore, galaxyPoints } = liquidGroup.userData;
-      if (liquidCore) setLiquidChromeColors(liquidCore, primaryColor, secondaryColor || 0xff00a0);
+      const { liquidCore, auraMesh, galaxyPoints } = liquidGroup.userData;
+      if (primaryColor === undefined) return;
+
+      const accentColor = secondaryColor ?? 0xff00a0;
+      if (liquidCore) setLiquidChromeColors(liquidCore, primaryColor, accentColor);
+      if (auraMesh?.material?.color) {
+        auraMesh.material.color.set(primaryColor);
+      }
       if (galaxyPoints) set50KGalaxyColor(galaxyPoints, primaryColor);
     }
   }

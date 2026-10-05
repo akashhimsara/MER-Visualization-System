@@ -1,6 +1,20 @@
 import { applyVisualParameters } from './parameters.js';
 
 /**
+ * Canonical manual-input presets for the Member 2 standalone demo.
+ *
+ * These are inputs to the emotion-to-visual mapping pipeline, not outputs
+ * from a Music Emotion Recognition (MER) model. Live MER integration is
+ * intentionally outside the 50% standalone milestone.
+ */
+export const EMOTION_VA_PRESETS = Object.freeze({
+  CALM: Object.freeze({ valence: 0.60, arousal: -0.50 }),
+  HAPPY: Object.freeze({ valence: 0.70, arousal: 0.40 }),
+  ENERGETIC: Object.freeze({ valence: 0.80, arousal: 0.90 }),
+  SAD: Object.freeze({ valence: -0.70, arousal: -0.60 })
+});
+
+/**
  * High-contrast Emotion-to-Visual-Parameter Preset Mappings.
  */
 export const EMOTION_PRESETS = {

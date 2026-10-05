@@ -168,9 +168,13 @@ export class Engine {
     if (userInitiated) {
       this.autoEmotionCycle = false; // Lock user selected emotion
     }
-    setEmotionState(this.getEngineState(), emotionName);
+    const appliedPreset = setEmotionState(this.getEngineState(), emotionName);
     if (this.modeManager) {
-      this.modeManager.setModeFromEmotion(emotionName);
+      this.modeManager.setModeFromEmotion(
+        emotionName,
+        appliedPreset.particleColor,
+        appliedPreset.lightColor
+      );
     }
   }
 
@@ -196,7 +200,11 @@ export class Engine {
     this.updateVisualParameters(predictedParams);
 
     if (predictedParams && predictedParams.predictedCategory && this.modeManager) {
-      this.modeManager.setModeFromEmotion(predictedParams.predictedCategory);
+      this.modeManager.setModeFromEmotion(
+        predictedParams.predictedCategory,
+        predictedParams.particleColor,
+        predictedParams.lightColor
+      );
     }
 
     return predictedParams;

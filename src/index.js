@@ -1,5 +1,5 @@
 import { Engine } from './visual-engine/Engine.js';
-import { EMOTION_PRESETS } from './visuals/emotions.js';
+import { EMOTION_PRESETS, EMOTION_VA_PRESETS } from './visuals/emotions.js';
 import { DEFAULT_VISUAL_PARAMS, VISUAL_PROFILES } from './visuals/parameters.js';
 import { createDebugPanel } from './ui/debug-panel.js';
 import { triggerBeatPulse } from './visuals/beat.js';
@@ -105,4 +105,4 @@ export class VisualizationEngine {
 }
 
 // Export visual preset constants & helper modules
-export { EMOTION_PRESETS, VISUAL_PROFILES, DEFAULT_VISUAL_PARAMS, createDebugPanel, triggerBeatPulse, VISUAL_MODES };
+export { EMOTION_PRESETS, EMOTION_VA_PRESETS, VISUAL_PROFILES, DEFAULT_VISUAL_PARAMS, createDebugPanel, triggerBeatPulse, VISUAL_MODES };

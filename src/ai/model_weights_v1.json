@@ -1,0 +1,256 @@
+{
+  "modelVersion": "visual-mapping-regressor-v1",
+  "datasetVersion": "mapping-v1",
+  "recordSource": "researcher_created_controlled_baseline",
+  "modelType": "scikit_learn_multi_output_ridge_regression",
+  "trainingLibrary": {
+    "scikitLearnVersion": "1.9.1",
+    "numpyVersion": "2.5.1"
+  },
+  "featureNames": [
+    "bias",
+    "valence",
+    "arousal",
+    "valenceSquared",
+    "valenceArousal",
+    "arousalSquared"
+  ],
+  "targetNames": [
+    "hue",
+    "saturation",
+    "brightness",
+    "particleDensity",
+    "particleSize",
+    "particleSpeed",
+    "motionIntensity",
+    "lightIntensity",
+    "bloomStrength"
+  ],
+  "split": {
+    "strategy": "scikit-learn fixed-seed stratified split by emotionCategory",
+    "seed": 20261005,
+    "trainRecordIds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      17,
+      18,
+      19,
+      21,
+      23,
+      25,
+      26,
+      27,
+      28,
+      29,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      42,
+      43,
+      44,
+      46,
+      47,
+      48,
+      49,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      59,
+      60,
+      61,
+      62,
+      65,
+      66,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      77,
+      78,
+      79,
+      80,
+      82,
+      83,
+      85,
+      86,
+      87,
+      88,
+      90,
+      91,
+      92,
+      93,
+      95,
+      96,
+      97,
+      98,
+      100
+    ],
+    "heldOutTestRecordIds": [
+      11,
+      16,
+      20,
+      22,
+      24,
+      30,
+      41,
+      45,
+      50,
+      58,
+      63,
+      64,
+      67,
+      68,
+      76,
+      81,
+      84,
+      89,
+      94,
+      99
+    ]
+  },
+  "training": {
+    "recordCount": 80,
+    "ridgeAlpha": 1e-06
+  },
+  "evaluation": {
+    "recordCount": 20,
+    "metrics": {
+      "hue": {
+        "mae": 0.1343000582,
+        "rmse": 0.1655217084
+      },
+      "saturation": {
+        "mae": 0.0873016747,
+        "rmse": 0.1213455832
+      },
+      "brightness": {
+        "mae": 0.0004415501,
+        "rmse": 0.0004596346
+      },
+      "particleDensity": {
+        "mae": 0.1019872545,
+        "rmse": 0.1151015064
+      },
+      "particleSize": {
+        "mae": 0.0001019892,
+        "rmse": 0.0001151025
+      },
+      "particleSpeed": {
+        "mae": 2.2e-08,
+        "rmse": 2.46e-08
+      },
+      "motionIntensity": {
+        "mae": 0.0001019812,
+        "rmse": 0.0001150984
+      },
+      "lightIntensity": {
+        "mae": 0.0003371537,
+        "rmse": 0.0004118769
+      },
+      "bloomStrength": {
+        "mae": 0.0001019868,
+        "rmse": 0.0001151013
+      }
+    }
+  },
+  "weights": {
+    "hue": [
+      0.5226694723,
+      -0.0644274423,
+      0.1504701659,
+      -0.0161399467,
+      0.0225159794,
+      0.2609232129
+    ],
+    "saturation": [
+      0.7101568169,
+      0.1911254755,
+      0.3007152848,
+      -0.0406020989,
+      -0.2849130211,
+      0.0372563833
+    ],
+    "brightness": [
+      0.4298538132,
+      0.1001440418,
+      0.0898569997,
+      1.4435e-05,
+      -8.09886e-05,
+      0.0001843631
+    ],
+    "particleDensity": [
+      315.0026242827,
+      0.0023286136,
+      165.365577001,
+      -0.000401451,
+      -0.0190135313,
+      -0.001661257
+    ],
+    "particleSize": [
+      0.2449973758,
+      -2.3286e-06,
+      0.1146344135,
+      4.015e-07,
+      1.90138e-05,
+      1.6609e-06
+    ],
+    "particleSpeed": [
+      1.3000000004,
+      -1e-10,
+      1.0999999628,
+      0.0,
+      1.1e-09,
+      -1.6e-09
+    ],
+    "motionIntensity": [
+      1.1750026246,
+      2.3285e-06,
+      1.0253655479,
+      -4.014e-07,
+      -1.90127e-05,
+      -1.6625e-06
+    ],
+    "lightIntensity": [
+      2.3998883985,
+      0.475021484,
+      1.1750985234,
+      9.80428e-05,
+      0.000108457,
+      0.0002183738
+    ],
+    "bloomStrength": [
+      0.4450026243,
+      2.3286e-06,
+      0.225365575,
+      -4.014e-07,
+      -1.90135e-05,
+      -1.6613e-06
+    ]
+  }
+}

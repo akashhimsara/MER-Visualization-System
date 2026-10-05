@@ -74,7 +74,7 @@ export const VISUAL_PROFILES = {
 export function applyVisualParameters(engineState, params = {}) {
   if (!engineState) return;
 
-  const { scene, placeholderMesh, particles, lighting, modeManager } = engineState;
+  const { scene, placeholderMesh, particles, lighting, modeManager, bloomPass } = engineState;
 
   // 1. Direct Particle Color, Size, Opacity Update
   if (particles && particles.material) {
@@ -149,8 +149,13 @@ export function applyVisualParameters(engineState, params = {}) {
     }
   }
 
-  // 5. Direct Background Tint Update (Always pitch dark space to preserve high contrast)
-  if (scene) {
-    scene.background = new THREE.Color(0x020306);
+  // 5. Keep the world dark while allowing each emotion to tint its atmosphere.
+  if (scene && params.bgTint !== undefined) {
+    scene.background = new THREE.Color(params.bgTint);
+  }
+
+  // 6. Apply the predicted glow level to the post-processing bloom pass.
+  if (bloomPass && params.bloomStrength !== undefined) {
+    bloomPass.strength = params.bloomStrength;
   }
 }
