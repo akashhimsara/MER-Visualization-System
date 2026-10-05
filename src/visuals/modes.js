@@ -1,17 +1,50 @@
 import * as THREE from 'three';
+import { createLiquidChromeCore, updateLiquidChromeCore, setLiquidChromeColors } from './shader-core.js';
+import { create50KGalaxy, update50KGalaxy, set50KGalaxyColor } from './galaxy.js';
 import { createEqualizerRing, updateSpectrumRing } from './spectrum.js';
-import { create3DAvatarEntity, updateAvatarEntity, setAvatarEntityState } from './avatar.js';
 
 /**
  * Visual Mode Key Constants
  */
 export const VISUAL_MODES = {
-  CYBER_AVATAR: 'CYBER_AVATAR',         // Mode 0: 3D Cyber Particle Humanoid Avatar & Dynamic Entities (Top-Level EDM)
-  EQUALIZER_RING: 'EQUALIZER_RING',     // Mode 1: 64 3D Glass Equalizer Bar Towers (HAPPY/Default)
-  NEON_TUNNEL: 'NEON_TUNNEL',           // Mode 2: 36 3D Flying Cyberpunk Neon Laser Tunnel (ENERGETIC)
-  HOLOGRAPHIC_CORE: 'HOLOGRAPHIC_CORE', // Mode 3: Faceted Crystal Core & Orbital Spectrum Rings (CALM)
-  HORIZON_GRID: 'HORIZON_GRID'          // Mode 4: 3D Audio Wireframe Ground Grid (SAD)
+  LIQUID_CHROME_GALAXY: 'LIQUID_CHROME_GALAXY', // Mode 0: Custom GLSL Liquid Chrome Core + 50K Particle Galaxy (Tomorrowland Top-Level)
+  EQUALIZER_RING: 'EQUALIZER_RING',             // Mode 1: 64 3D Glass Equalizer Bar Towers (HAPPY/Default)
+  NEON_TUNNEL: 'NEON_TUNNEL',                   // Mode 2: 36 3D Flying Cyberpunk Neon Laser Tunnel (ENERGETIC)
+  HOLOGRAPHIC_CORE: 'HOLOGRAPHIC_CORE',         // Mode 3: Faceted Crystal Core & Orbital Spectrum Rings (CALM)
+  HORIZON_GRID: 'HORIZON_GRID'                  // Mode 4: 3D Audio Wireframe Ground Grid (SAD)
 };
+
+/**
+ * Creates the Hybrid Tomorrowland Stage Level Visualizer Group (Liquid Chrome Core + 50K Particle Galaxy).
+ */
+function createLiquidChromeGalaxyGroup() {
+  const group = new THREE.Group();
+  group.name = 'mode_liquidChromeGalaxy';
+
+  // 1. Custom GLSL Liquid Chrome Shader Core Mesh
+  const liquidCore = createLiquidChromeCore(0x00f3ff, 0xff00a0);
+  group.add(liquidCore);
+
+  // 2. Soft Energy Atmosphere Aura Sphere
+  const auraGeo = new THREE.SphereGeometry(1.20, 32, 32);
+  const auraMat = new THREE.MeshBasicMaterial({
+    color: 0x00f3ff,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide
+  });
+  const auraMesh = new THREE.Mesh(auraGeo, auraMat);
+  auraMesh.position.set(0, 1.5, 0);
+  group.add(auraMesh);
+
+  // 3. 50,000 Particle Cosmic Stardust Galaxy
+  const galaxyPoints = create50KGalaxy(50000, 0x00f3ff);
+  group.add(galaxyPoints);
+
+  group.userData = { liquidCore, auraMesh, galaxyPoints };
+  return group;
+}
 
 /**
  * Creates High-End 3D Cyberpunk Neon Flying Laser Tunnel with Central Star Matrix.
@@ -30,7 +63,6 @@ function createTunnelMeshGroup() {
     const radius = 3.8;
     const isEven = i % 2 === 0;
 
-    // Outer Octagonal Neon Frame Ring
     const ringGeo = new THREE.RingGeometry(radius - 0.20, radius, 8);
     const ringMat = new THREE.MeshBasicMaterial({
       color: isEven ? 0x00f3ff : 0xff00a0,
@@ -44,7 +76,6 @@ function createTunnelMeshGroup() {
     ringMesh.rotation.z = (i / ringCount) * Math.PI;
     tunnelGroup.add(ringMesh);
 
-    // Inner Glowing Laser Node Lines
     const innerGeo = new THREE.TorusGeometry(radius - 0.25, 0.03, 8, 32);
     const innerMat = new THREE.MeshBasicMaterial({
       color: isEven ? 0xff00a0 : 0xaa00ff,
@@ -58,7 +89,6 @@ function createTunnelMeshGroup() {
     rings.push({ mesh: ringMesh, innerMesh, zPos, index: i });
   }
 
-  // Central Hyper-Speed Particle Core Matrix
   const starCount = 300;
   const starGeo = new THREE.BufferGeometry();
   const starPositions = new Float32Array(starCount * 3);
@@ -89,7 +119,6 @@ function createHolographicCoreGroup() {
   const group = new THREE.Group();
   group.name = 'mode_holographicCore';
 
-  // 1. Faceted Crystal Core Outer Mesh
   const coreGeo = new THREE.IcosahedronGeometry(1.4, 2);
   const coreMat = new THREE.MeshStandardMaterial({
     color: 0x00f3ff,
@@ -103,7 +132,6 @@ function createHolographicCoreGroup() {
   coreMesh.name = 'coreMesh';
   group.add(coreMesh);
 
-  // 2. Inner Glowing Core Plasma Orb
   const innerOrbGeo = new THREE.SphereGeometry(0.85, 32, 32);
   const innerOrbMat = new THREE.MeshBasicMaterial({
     color: 0x00f3ff,
@@ -114,7 +142,6 @@ function createHolographicCoreGroup() {
   const innerOrbMesh = new THREE.Mesh(innerOrbGeo, innerOrbMat);
   group.add(innerOrbMesh);
 
-  // 3. Orbital Ring A
   const ringAGeo = new THREE.TorusGeometry(2.4, 0.04, 16, 100);
   const ringAMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
   const ringAMesh = new THREE.Mesh(ringAGeo, ringAMat);
@@ -122,7 +149,6 @@ function createHolographicCoreGroup() {
   ringAMesh.rotation.x = Math.PI * 0.45;
   group.add(ringAMesh);
 
-  // 4. Orbital Ring B
   const ringBGeo = new THREE.TorusGeometry(3.0, 0.04, 16, 100);
   const ringBMat = new THREE.MeshBasicMaterial({ color: 0xff00aa, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
   const ringBMesh = new THREE.Mesh(ringBGeo, ringBMat);
@@ -130,14 +156,7 @@ function createHolographicCoreGroup() {
   ringBMesh.rotation.y = Math.PI * 0.45;
   group.add(ringBMesh);
 
-  // 5. Orbital Ring C (Outer Horizon Ring)
-  const ringCGeo = new THREE.TorusGeometry(3.6, 0.03, 16, 100);
-  const ringCMat = new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-  const ringCMesh = new THREE.Mesh(ringCGeo, ringCMat);
-  ringCMesh.rotation.x = Math.PI * 0.25;
-  group.add(ringCMesh);
-
-  group.userData = { coreMesh, innerOrbMesh, ringAMesh, ringBMesh, ringCMesh };
+  group.userData = { coreMesh, innerOrbMesh, ringAMesh, ringBMesh };
   return group;
 }
 
@@ -148,7 +167,6 @@ function createHorizonGridGroup() {
   const group = new THREE.Group();
   group.name = 'mode_horizonGrid';
 
-  // 1. Dynamic Audio Wireframe Ground Grid Plane (60x60 with 50x50 segments)
   const gridGeo = new THREE.PlaneGeometry(60, 60, 50, 50);
   const gridMat = new THREE.MeshBasicMaterial({
     color: 0x00f3ff,
@@ -162,10 +180,8 @@ function createHorizonGridGroup() {
   gridMesh.position.y = -0.2;
   group.add(gridMesh);
 
-  // Store initial vertex positions for dynamic audio wave displacement
   const basePositions = new Float32Array(gridGeo.attributes.position.array);
 
-  // 2. Horizon Glowing Sun Arc / Halo
   const sunGeo = new THREE.RingGeometry(4.0, 6.5, 32);
   const sunMat = new THREE.MeshBasicMaterial({
     color: 0x00aaff,
@@ -184,15 +200,15 @@ function createHorizonGridGroup() {
 
 /**
  * VisualModeManager controls instantiation, audio updates, and smooth switching
- * between 3D Visualizer Modes and 3D Avatar Entities.
+ * between 3D Visualizer Modes.
  */
 export class VisualModeManager {
   constructor(scene) {
     this.scene = scene;
-    this.activeMode = VISUAL_MODES.CYBER_AVATAR; // Default: 3D Cyber Particle Avatar!
+    this.activeMode = VISUAL_MODES.LIQUID_CHROME_GALAXY; // Default: Top-Level GLSL Liquid Chrome Galaxy!
 
     this.modes = {
-      [VISUAL_MODES.CYBER_AVATAR]: create3DAvatarEntity('CYBER_KINETIC_HUMANOID', 0x00f3ff),
+      [VISUAL_MODES.LIQUID_CHROME_GALAXY]: createLiquidChromeGalaxyGroup(),
       [VISUAL_MODES.EQUALIZER_RING]: createEqualizerRing(64, 3.6),
       [VISUAL_MODES.NEON_TUNNEL]: createTunnelMeshGroup(),
       [VISUAL_MODES.HOLOGRAPHIC_CORE]: createHolographicCoreGroup(),
@@ -222,24 +238,17 @@ export class VisualModeManager {
   }
 
   /**
-   * Automatically selects 3D Visual Mode and 3D Entity Form based on AI predicted emotion category.
-   * @param {string} emotionCategory - 'HAPPY' | 'ENERGETIC' | 'CALM' | 'SAD'
-   * @param {string} entityForm - 'CYBER_KINETIC_HUMANOID' | 'EUPHORIC_DANCER_AVATAR' | 'ASTRAL_HOLOGRAM_ENTITY' | 'GHOST_WIREFRAME_SPIRIT'
+   * Automatically selects 3D Visual Mode and updates Colors based on AI predicted emotion.
+   * @param {string} emotionCategory 
+   * @param {number|THREE.Color} primaryColor 
+   * @param {number|THREE.Color} secondaryColor 
    */
-  setModeFromEmotion(emotionCategory, entityForm) {
-    const avatarGroup = this.modes[VISUAL_MODES.CYBER_AVATAR];
-
-    let targetForm = entityForm;
-    if (!targetForm) {
-      const cat = String(emotionCategory).toUpperCase();
-      if (cat === 'ENERGETIC') targetForm = 'CYBER_KINETIC_HUMANOID';
-      else if (cat === 'HAPPY') targetForm = 'EUPHORIC_DANCER_AVATAR';
-      else if (cat === 'SAD') targetForm = 'GHOST_WIREFRAME_SPIRIT';
-      else targetForm = 'ASTRAL_HOLOGRAM_ENTITY';
-    }
-
-    if (avatarGroup) {
-      setAvatarEntityState(avatarGroup, targetForm);
+  setModeFromEmotion(emotionCategory, primaryColor, secondaryColor) {
+    const liquidGroup = this.modes[VISUAL_MODES.LIQUID_CHROME_GALAXY];
+    if (liquidGroup && liquidGroup.userData) {
+      const { liquidCore, galaxyPoints } = liquidGroup.userData;
+      if (liquidCore) setLiquidChromeColors(liquidCore, primaryColor, secondaryColor || 0xff00a0);
+      if (galaxyPoints) set50KGalaxyColor(galaxyPoints, primaryColor);
     }
   }
 
@@ -250,8 +259,14 @@ export class VisualModeManager {
     const currentGroup = this.modes[this.activeMode];
     if (!currentGroup) return;
 
-    if (this.activeMode === VISUAL_MODES.CYBER_AVATAR) {
-      updateAvatarEntity(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
+    if (this.activeMode === VISUAL_MODES.LIQUID_CHROME_GALAXY) {
+      const { liquidCore, auraMesh, galaxyPoints } = currentGroup.userData;
+      if (liquidCore) updateLiquidChromeCore(liquidCore, frequencyData, deltaTime, elapsedTime, beatPulse);
+      if (galaxyPoints) update50KGalaxy(galaxyPoints, frequencyData, deltaTime, elapsedTime, beatPulse);
+      if (auraMesh) {
+        const auraScale = 1.0 + beatPulse * 0.18;
+        auraMesh.scale.set(auraScale, auraScale, auraScale);
+      }
     } else if (this.activeMode === VISUAL_MODES.EQUALIZER_RING) {
       updateSpectrumRing(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
     } else if (this.activeMode === VISUAL_MODES.NEON_TUNNEL) {
@@ -262,9 +277,6 @@ export class VisualModeManager {
         r.mesh.position.z += flySpeed * deltaTime;
         if (r.mesh.position.z > 6.0) r.mesh.position.z -= tunnelLength;
         r.mesh.rotation.z += (r.index % 2 === 0 ? 0.35 : -0.35) * deltaTime;
-        
-        const scale = 1.0 + (beatPulse * 0.18);
-        r.mesh.scale.set(scale, scale, 1.0);
       });
 
       if (starPoints && starPoints.geometry) {
@@ -277,20 +289,13 @@ export class VisualModeManager {
         posAttr.needsUpdate = true;
       }
     } else if (this.activeMode === VISUAL_MODES.HOLOGRAPHIC_CORE) {
-      const { coreMesh, innerOrbMesh, ringAMesh, ringBMesh, ringCMesh } = currentGroup.userData;
+      const { coreMesh, innerOrbMesh, ringAMesh, ringBMesh } = currentGroup.userData;
       if (coreMesh) {
         coreMesh.rotation.y = elapsedTime * 0.45;
         coreMesh.rotation.x = elapsedTime * 0.25;
-        const coreScale = 1.0 + (beatPulse * 0.30);
-        coreMesh.scale.set(coreScale, coreScale, coreScale);
-      }
-      if (innerOrbMesh) {
-        const orbScale = 1.0 + Math.sin(elapsedTime * 3.0) * 0.08 + (beatPulse * 0.20);
-        innerOrbMesh.scale.set(orbScale, orbScale, orbScale);
       }
       if (ringAMesh) ringAMesh.rotation.z = elapsedTime * 0.70;
       if (ringBMesh) ringBMesh.rotation.z = -elapsedTime * 0.55;
-      if (ringCMesh) ringCMesh.rotation.y = elapsedTime * 0.40;
     } else if (this.activeMode === VISUAL_MODES.HORIZON_GRID) {
       const { gridMesh, gridGeo, basePositions, sunMesh } = currentGroup.userData;
 

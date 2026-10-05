@@ -14,9 +14,9 @@ export function createCamera(width, height) {
 
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
   camera.userData = { baseFov: fov };
-  // Immersive 3D perspective looking over 3D equalizer ring & mirror floor
-  camera.position.set(0, 4.0, 7.2);
-  camera.lookAt(0, 0.6, 0);
+  // Immersive 3D perspective looking at central 3D visualizer core
+  camera.position.set(0, 3.2, 9.0);
+  camera.lookAt(0, 1.6, 0);
   return camera;
 }
 

@@ -3,6 +3,7 @@ import { setParticleColor, lerpParticleColor, setParticleStyle } from './color.j
 import { setMotionSpeed, setMotionIntensity } from './animation.js';
 import { setLightColor, setLightIntensity } from './lighting.js';
 import { setSpectrumColor } from './spectrum.js';
+import { setAvatarEntityState } from './avatar.js';
 
 /**
  * Default visual parameter configuration.
@@ -67,13 +68,13 @@ export const VISUAL_PROFILES = {
 /**
  * Applies a complete bundle of visual parameters (color, size, opacity, motion, lighting, background) to the visualization engine targets.
  * 
- * @param {object} engineState - Container with { scene, placeholderMesh, particles, lighting }
+ * @param {object} engineState - Container with { scene, placeholderMesh, particles, lighting, modeManager }
  * @param {object} params - Visual parameters object
  */
 export function applyVisualParameters(engineState, params = {}) {
   if (!engineState) return;
 
-  const { scene, placeholderMesh, particles, lighting } = engineState;
+  const { scene, placeholderMesh, particles, lighting, modeManager } = engineState;
 
   // 1. Direct Particle Color, Size, Opacity Update
   if (particles && particles.material) {
@@ -89,6 +90,11 @@ export function applyVisualParameters(engineState, params = {}) {
       particles.material.opacity = params.particleOpacity;
     }
     particles.material.needsUpdate = true;
+  }
+
+  // 2. Direct 3D Cyber Avatar Entity State & Color Update
+  if (modeManager && modeManager.modes && modeManager.modes['CYBER_AVATAR']) {
+    setAvatarEntityState(modeManager.modes['CYBER_AVATAR'], params.entityForm, params.particleColor);
   }
 
   // 2. Direct Cyber Core Color Update
@@ -143,8 +149,8 @@ export function applyVisualParameters(engineState, params = {}) {
     }
   }
 
-  // 5. Direct Background Tint Update
-  if (scene && params.bgTint !== undefined) {
-    scene.background = new THREE.Color(params.bgTint);
+  // 5. Direct Background Tint Update (Always pitch dark space to preserve high contrast)
+  if (scene) {
+    scene.background = new THREE.Color(0x020306);
   }
 }

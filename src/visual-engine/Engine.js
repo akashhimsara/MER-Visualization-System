@@ -211,6 +211,15 @@ export class Engine {
     const elapsedTime = this.clock.getElapsedTime();
     const deltaTime = this.clock.getDelta();
 
+    // Smooth Cinematic Slow Camera Orbit Motion
+    if (this.camera) {
+      const camRadius = 9.0;
+      this.camera.position.x = Math.sin(elapsedTime * 0.08) * camRadius;
+      this.camera.position.z = Math.cos(elapsedTime * 0.08) * camRadius;
+      this.camera.position.y = 3.2 + Math.sin(elapsedTime * 0.15) * 0.4;
+      this.camera.lookAt(0, 1.6, 0);
+    }
+
     // Central Core Emblem & Dual Counter-Rotating Orbital Rings
     if (this.placeholderMesh) {
       this.placeholderMesh.position.y = Math.sin(elapsedTime * 0.8) * 0.08;

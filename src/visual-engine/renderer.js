@@ -35,9 +35,9 @@ export function createComposer(renderer, scene, camera, width, height) {
   // Pin-sharp crisp neon bloom pass (prevents white blowout while preserving vibrant neon glow)
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(width, height),
-    0.45,  // Crisp bloom strength
-    0.30,  // Controlled glow radius
-    0.45   // Higher threshold prevents solid white over-exposure
+    0.35,  // Crisp bloom strength
+    0.25,  // Controlled glow radius
+    0.55   // High threshold prevents solid white/yellow over-exposure
   );
   composer.addPass(bloomPass);
 
