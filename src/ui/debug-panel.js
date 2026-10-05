@@ -94,6 +94,7 @@ export function createDebugPanel(engineInstance) {
     <div style="margin-bottom: 12px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 243, 255, 0.2);">
       <div style="font-weight: 600; color: #00f3ff; margin-bottom: 6px;">🎮 3D Visualizer Mode</div>
       <select id="visual-mode-select" style="width: 100%; padding: 6px; border-radius: 5px; border: 1px solid #00f3ff; background: rgba(0,243,255,0.1); color: #fff; cursor: pointer; font-weight: 600;">
+        <option value="CYBER_AVATAR" style="background: #111; color: #00f3ff;">🕺 3D CYBER AVATAR (Top EDM)</option>
         <option value="EQUALIZER_RING" style="background: #111; color: #fff;">EQUALIZER RING (Happy)</option>
         <option value="NEON_TUNNEL" style="background: #111; color: #fff;">NEON TUNNEL (Energetic)</option>
         <option value="HOLOGRAPHIC_CORE" style="background: #111; color: #fff;">HOLOGRAPHIC CORE (Calm)</option>

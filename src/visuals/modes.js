@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { createEqualizerRing, updateSpectrumRing } from './spectrum.js';
+import { create3DAvatarEntity, updateAvatarEntity, setAvatarEntityState } from './avatar.js';
 
 /**
  * Visual Mode Key Constants
  */
 export const VISUAL_MODES = {
+  CYBER_AVATAR: 'CYBER_AVATAR',         // Mode 0: 3D Cyber Particle Humanoid Avatar & Dynamic Entities (Top-Level EDM)
   EQUALIZER_RING: 'EQUALIZER_RING',     // Mode 1: 64 3D Glass Equalizer Bar Towers (HAPPY/Default)
   NEON_TUNNEL: 'NEON_TUNNEL',           // Mode 2: 36 3D Flying Cyberpunk Neon Laser Tunnel (ENERGETIC)
   HOLOGRAPHIC_CORE: 'HOLOGRAPHIC_CORE', // Mode 3: Faceted Crystal Core & Orbital Spectrum Rings (CALM)
@@ -146,7 +148,7 @@ function createHorizonGridGroup() {
   const group = new THREE.Group();
   group.name = 'mode_horizonGrid';
 
-  // 1. Dynamic Audio Wireframe Ground Grid Plane (50x50 with 50x50 segments)
+  // 1. Dynamic Audio Wireframe Ground Grid Plane (60x60 with 50x50 segments)
   const gridGeo = new THREE.PlaneGeometry(60, 60, 50, 50);
   const gridMat = new THREE.MeshBasicMaterial({
     color: 0x00f3ff,
@@ -182,14 +184,15 @@ function createHorizonGridGroup() {
 
 /**
  * VisualModeManager controls instantiation, audio updates, and smooth switching
- * between 3D Visualizer Modes.
+ * between 3D Visualizer Modes and 3D Avatar Entities.
  */
 export class VisualModeManager {
   constructor(scene) {
     this.scene = scene;
-    this.activeMode = VISUAL_MODES.EQUALIZER_RING;
+    this.activeMode = VISUAL_MODES.CYBER_AVATAR; // Default: 3D Cyber Particle Avatar!
 
     this.modes = {
+      [VISUAL_MODES.CYBER_AVATAR]: create3DAvatarEntity('CYBER_KINETIC_HUMANOID', 0x00f3ff),
       [VISUAL_MODES.EQUALIZER_RING]: createEqualizerRing(64, 3.6),
       [VISUAL_MODES.NEON_TUNNEL]: createTunnelMeshGroup(),
       [VISUAL_MODES.HOLOGRAPHIC_CORE]: createHolographicCoreGroup(),
@@ -206,7 +209,7 @@ export class VisualModeManager {
 
   /**
    * Switches active 3D Visualizer Mode smoothly.
-   * @param {string} modeKey - 'EQUALIZER_RING' | 'NEON_TUNNEL' | 'HOLOGRAPHIC_CORE' | 'HORIZON_GRID'
+   * @param {string} modeKey
    */
   switchMode(modeKey) {
     if (!this.modes[modeKey]) return;
@@ -219,19 +222,24 @@ export class VisualModeManager {
   }
 
   /**
-   * Automatically selects 3D Visual Mode based on AI predicted emotion category.
+   * Automatically selects 3D Visual Mode and 3D Entity Form based on AI predicted emotion category.
    * @param {string} emotionCategory - 'HAPPY' | 'ENERGETIC' | 'CALM' | 'SAD'
+   * @param {string} entityForm - 'CYBER_KINETIC_HUMANOID' | 'EUPHORIC_DANCER_AVATAR' | 'ASTRAL_HOLOGRAM_ENTITY' | 'GHOST_WIREFRAME_SPIRIT'
    */
-  setModeFromEmotion(emotionCategory) {
-    const cat = String(emotionCategory).toUpperCase();
-    if (cat === 'ENERGETIC') {
-      this.switchMode(VISUAL_MODES.NEON_TUNNEL);
-    } else if (cat === 'CALM') {
-      this.switchMode(VISUAL_MODES.HOLOGRAPHIC_CORE);
-    } else if (cat === 'SAD') {
-      this.switchMode(VISUAL_MODES.HORIZON_GRID);
-    } else {
-      this.switchMode(VISUAL_MODES.EQUALIZER_RING);
+  setModeFromEmotion(emotionCategory, entityForm) {
+    const avatarGroup = this.modes[VISUAL_MODES.CYBER_AVATAR];
+
+    let targetForm = entityForm;
+    if (!targetForm) {
+      const cat = String(emotionCategory).toUpperCase();
+      if (cat === 'ENERGETIC') targetForm = 'CYBER_KINETIC_HUMANOID';
+      else if (cat === 'HAPPY') targetForm = 'EUPHORIC_DANCER_AVATAR';
+      else if (cat === 'SAD') targetForm = 'GHOST_WIREFRAME_SPIRIT';
+      else targetForm = 'ASTRAL_HOLOGRAM_ENTITY';
+    }
+
+    if (avatarGroup) {
+      setAvatarEntityState(avatarGroup, targetForm);
     }
   }
 
@@ -242,7 +250,9 @@ export class VisualModeManager {
     const currentGroup = this.modes[this.activeMode];
     if (!currentGroup) return;
 
-    if (this.activeMode === VISUAL_MODES.EQUALIZER_RING) {
+    if (this.activeMode === VISUAL_MODES.CYBER_AVATAR) {
+      updateAvatarEntity(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
+    } else if (this.activeMode === VISUAL_MODES.EQUALIZER_RING) {
       updateSpectrumRing(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
     } else if (this.activeMode === VISUAL_MODES.NEON_TUNNEL) {
       const { rings, starPoints, tunnelLength } = currentGroup.userData;
@@ -253,7 +263,6 @@ export class VisualModeManager {
         if (r.mesh.position.z > 6.0) r.mesh.position.z -= tunnelLength;
         r.mesh.rotation.z += (r.index % 2 === 0 ? 0.35 : -0.35) * deltaTime;
         
-        // Pulse ring scale on beat hit
         const scale = 1.0 + (beatPulse * 0.18);
         r.mesh.scale.set(scale, scale, 1.0);
       });
@@ -286,10 +295,8 @@ export class VisualModeManager {
       const { gridMesh, gridGeo, basePositions, sunMesh } = currentGroup.userData;
 
       if (gridMesh && gridGeo && basePositions) {
-        // Infinite Z flight animation
         gridMesh.position.z = (elapsedTime * 5.0) % 2.4;
 
-        // Audio Frequency Waveform Vertex Displacement
         const posAttr = gridGeo.attributes.position;
         const array = posAttr.array;
         const vertexCount = posAttr.count;
@@ -299,11 +306,9 @@ export class VisualModeManager {
           const y = basePositions[i * 3 + 1];
           const distFromCenter = Math.abs(x);
 
-          // Calculate liquid wave displacement based on x distance and time
           const freqFactor = frequencyData && frequencyData.length > 0 ? (frequencyData[i % 32] / 255.0) : 0.4;
           const waveHeight = Math.sin(y * 0.4 + elapsedTime * 4.0) * Math.cos(x * 0.3 + elapsedTime * 2.0) * (0.4 + freqFactor * 1.8 + beatPulse * 0.6);
 
-          // Apply displacement to Z coordinate (which is vertical Y when rotated)
           array[i * 3 + 2] = basePositions[i * 3 + 2] + waveHeight * Math.min(1.0, distFromCenter * 0.1);
         }
         posAttr.needsUpdate = true;

@@ -90,6 +90,17 @@ export class EmotionVisualMapper {
       emotionCategory = 'CALM';
     }
 
+    let entityForm = 'ASTRAL_HOLOGRAM_ENTITY';
+    if (emotionCategory === 'ENERGETIC') {
+      entityForm = 'CYBER_KINETIC_HUMANOID';
+    } else if (emotionCategory === 'HAPPY') {
+      entityForm = 'EUPHORIC_DANCER_AVATAR';
+    } else if (emotionCategory === 'SAD') {
+      entityForm = 'GHOST_WIREFRAME_SPIRIT';
+    } else {
+      entityForm = 'ASTRAL_HOLOGRAM_ENTITY';
+    }
+
     const colorObj = new THREE.Color().setHSL(hue, saturation, lightness);
     const hexColor = colorObj.getHex();
 
@@ -114,6 +125,7 @@ export class EmotionVisualMapper {
       valence: v,
       arousal: a,
       emotionCategory,
+      entityForm,
       hue,
       saturation,
       brightness: lightness,
