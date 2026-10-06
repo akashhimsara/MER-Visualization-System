@@ -1,0 +1,35 @@
+# Node / Vite
+node_modules/
+dist/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data
+data/raw/
+data/interim/
+data/processed/
+
+# Model artifacts
+model_artifacts/*
+!model_artifacts/README.md
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
