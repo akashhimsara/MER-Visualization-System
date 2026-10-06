@@ -153,11 +153,9 @@ export function set50KGalaxyColor(galaxyPoints, primary) {
   for (let i = 0; i < colorAttr.count; i++) {
     const idx3 = i * 3;
     const mixFactor = (i % 100) / 100.0;
-    const pColor = targetColor.clone().lerp(secColor, mixFactor);
-
-    array[idx3] = pColor.r;
-    array[idx3 + 1] = pColor.g;
-    array[idx3 + 2] = pColor.b;
+    array[idx3] = targetColor.r + ((secColor.r - targetColor.r) * mixFactor);
+    array[idx3 + 1] = targetColor.g + ((secColor.g - targetColor.g) * mixFactor);
+    array[idx3 + 2] = targetColor.b + ((secColor.b - targetColor.b) * mixFactor);
   }
   colorAttr.needsUpdate = true;
 }

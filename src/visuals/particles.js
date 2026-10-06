@@ -77,12 +77,27 @@ export function createParticles(count = 250, initialColor = DEFAULT_COLOR) {
   particles.userData = {
     initialPositions,
     count,
+    capacity: count,
     baseSize: 0.35,
     motionConfig: { speed: 1.0, intensity: 1.0 }
   };
 
   initParticleMotion(particles);
   return particles;
+}
+
+/**
+ * Changes the visible number of preallocated particles without allocating new
+ * GPU buffers. This makes the AI model's particleDensity target observable in
+ * the renderer while preserving real-time performance.
+ */
+export function setParticleDensity(particles, density) {
+  if (!particles?.geometry || !particles.userData) return;
+
+  const capacity = particles.userData.capacity || particles.geometry.attributes.position.count;
+  const activeCount = Math.round(THREE.MathUtils.clamp(density, 1, capacity));
+  particles.userData.count = activeCount;
+  particles.geometry.setDrawRange(0, activeCount);
 }
 
 /**
@@ -104,4 +119,3 @@ export function disposeParticles(particles) {
   if (particles.geometry) particles.geometry.dispose();
   if (particles.material) particles.material.dispose();
 }
-

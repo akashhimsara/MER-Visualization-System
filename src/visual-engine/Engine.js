@@ -2,14 +2,15 @@ import * as THREE from 'three';
 import { createScene } from './scene.js';
 import { createCamera, updateCameraAspect } from './camera.js';
 import { createRenderer, createComposer, updateRendererSize } from './renderer.js';
-import { createParticles, updateParticles, disposeParticles } from '../visuals/particles.js';
+import { createParticles, updateParticles, disposeParticles, setParticleDensity } from '../visuals/particles.js';
 import { createLighting, updateLighting } from '../visuals/lighting.js';
 import { applyVisualParameters, DEFAULT_VISUAL_PARAMS } from '../visuals/parameters.js';
-import { EMOTION_PRESETS, setEmotionState } from '../visuals/emotions.js';
+import { EMOTION_PRESETS, EMOTION_VA_PRESETS } from '../visuals/emotions.js';
 import { createBeatController, triggerBeatPulse, updateBeatReactor } from '../visuals/beat.js';
 import { AudioAnalyzer } from '../audio/audio-analyzer.js';
 import { EmotionVisualMapper } from '../ai/mapping-schema.js';
 import { EmotionAIModel } from '../ai/emotion-ai-model.js';
+import { createSongVisualDNA, fingerprintSong } from '../ai/song-visual-dna.js';
 import { VisualModeManager, VISUAL_MODES } from '../visuals/modes.js';
 
 /**
@@ -51,7 +52,8 @@ export class Engine {
     this.clock = new THREE.Clock();
 
     // Initialize Particle System (Speed particles)
-    this.particles = createParticles(400, DEFAULT_VISUAL_PARAMS.particleColor);
+    this.particles = createParticles(1000, DEFAULT_VISUAL_PARAMS.particleColor);
+    setParticleDensity(this.particles, 400);
     this.scene.add(this.particles);
 
     // Initialize EDM Beat Reactor Controller
@@ -62,6 +64,9 @@ export class Engine {
 
     // Initialize AI Mapping Model
     this.aiModel = new EmotionAIModel();
+    this.songVisualDNA = null;
+    this.lastAudioProfileKey = 'ANALYZING';
+    this.currentPrediction = null;
 
     // Emotion Settings
     this.emotionKeys = Object.keys(EMOTION_PRESETS);
@@ -69,8 +74,8 @@ export class Engine {
     this.emotionCycleInterval = 6.0;
     this.autoEmotionCycle = true; // Set to false when user manually selects an emotion!
 
-    // Apply initial CALM state
-    setEmotionState(this.getEngineState(), 'CALM');
+    // Apply the same trained-model input path used by the named emotion controls.
+    this.setValenceArousal(EMOTION_VA_PRESETS.CALM.valence, EMOTION_VA_PRESETS.CALM.arousal, false);
 
     // Mount canvas to DOM container
     this.container.appendChild(this.renderer.domElement);
@@ -128,6 +133,33 @@ export class Engine {
     if (this.audioAnalyzer) {
       this.audioAnalyzer.loadAudioFile(file);
     }
+    // A real song must not be overwritten by the no-audio demo emotion cycle.
+    this.autoEmotionCycle = false;
+    return this.createSongVisualDNA(file);
+  }
+
+  /**
+   * Creates and applies a deterministic visual identity for an uploaded song.
+   * This is a variation layer, separate from the trained VA-to-parameters
+   * mapping model.
+   */
+  createSongVisualDNA(file) {
+    const prediction = this.currentPrediction || this.aiModel.predict(0.60, -0.50);
+    const fingerprint = fingerprintSong(file);
+    const audioProfile = this.audioAnalyzer?.getAudioProfile() || { key: 'ANALYZING' };
+    this.lastAudioProfileKey = audioProfile.key;
+    this.songVisualDNA = createSongVisualDNA(fingerprint, prediction.predictedCategory, prediction.particleColor, audioProfile);
+    this.applySongVisualDNA();
+    return this.songVisualDNA;
+  }
+
+  applySongVisualDNA() {
+    if (!this.songVisualDNA || !this.modeManager) return null;
+    const { palette, variation, visualMode } = this.songVisualDNA;
+    this.modeManager.switchMode(visualMode);
+    this.modeManager.setModeFromEmotion(this.songVisualDNA.emotionCategory, palette.primary, palette.secondary);
+    window.dispatchEvent(new CustomEvent('songvisualdna', { detail: this.songVisualDNA }));
+    return this.songVisualDNA;
   }
 
   /**
@@ -158,7 +190,8 @@ export class Engine {
 
   /**
    * Sets the active emotion state directly and locks user selection.
-   * Also morphs 3D visual geometry mode to match emotion.
+   * The named emotion is converted to its canonical VA input, then passed to
+   * the trained visual-mapping model. It does not bypass AI inference.
    * 
    * @param {string} emotionName - 'CALM' | 'HAPPY' | 'ENERGETIC' | 'SAD'
    * @param {number} durationSeconds - Optional transition parameter
@@ -168,14 +201,9 @@ export class Engine {
     if (userInitiated) {
       this.autoEmotionCycle = false; // Lock user selected emotion
     }
-    const appliedPreset = setEmotionState(this.getEngineState(), emotionName);
-    if (this.modeManager) {
-      this.modeManager.setModeFromEmotion(
-        emotionName,
-        appliedPreset.particleColor,
-        appliedPreset.lightColor
-      );
-    }
+    const key = String(emotionName).toUpperCase();
+    const vaPreset = EMOTION_VA_PRESETS[key] || EMOTION_VA_PRESETS.CALM;
+    return this.setValenceArousal(vaPreset.valence, vaPreset.arousal, userInitiated);
   }
 
   /**
@@ -183,7 +211,7 @@ export class Engine {
    * @param {object} params 
    */
   updateVisualParameters(params) {
-    applyVisualParameters(this.getEngineState(), params);
+    return applyVisualParameters(this.getEngineState(), params);
   }
 
   /**
@@ -194,9 +222,10 @@ export class Engine {
    * @param {number} arousal - Energy (-1.0 to 1.0)
    * @returns {object} Predicted visual parameters vector
    */
-  setValenceArousal(valence = 0.0, arousal = 0.0) {
-    this.autoEmotionCycle = false; // Lock user AI slider control
+  setValenceArousal(valence = 0.0, arousal = 0.0, userInitiated = true) {
+    if (userInitiated) this.autoEmotionCycle = false; // Lock manual controls only
     const predictedParams = this.aiModel ? this.aiModel.predict(valence, arousal) : EmotionVisualMapper.mapValenceArousalToVisuals(valence, arousal);
+    this.currentPrediction = predictedParams;
     this.updateVisualParameters(predictedParams);
 
     if (predictedParams && predictedParams.predictedCategory && this.modeManager) {
@@ -205,6 +234,18 @@ export class Engine {
         predictedParams.particleColor,
         predictedParams.lightColor
       );
+    }
+
+    // Preserve song-specific identity while adapting its selected visual world
+    // to the current emotion supplied by a slider or future MER integration.
+    if (this.songVisualDNA) {
+      this.songVisualDNA = createSongVisualDNA(
+        this.songVisualDNA.songFingerprint,
+        predictedParams.predictedCategory,
+        predictedParams.particleColor,
+        this.songVisualDNA.audioProfile
+      );
+      this.applySongVisualDNA();
     }
 
     return predictedParams;
@@ -221,10 +262,13 @@ export class Engine {
 
     // Smooth Cinematic Slow Camera Orbit Motion
     if (this.camera) {
-      const camRadius = 9.0;
-      this.camera.position.x = Math.sin(elapsedTime * 0.08) * camRadius;
-      this.camera.position.z = Math.cos(elapsedTime * 0.08) * camRadius;
-      this.camera.position.y = 3.2 + Math.sin(elapsedTime * 0.15) * 0.4;
+      const dnaVariation = this.songVisualDNA?.variation;
+      const camRadius = dnaVariation?.cameraRadius || 9.0;
+      const camOrbitSpeed = dnaVariation?.cameraOrbitSpeed || 0.08;
+      const motionEnergy = dnaVariation?.visualEnergy || 1.0;
+      this.camera.position.x = Math.sin(elapsedTime * camOrbitSpeed) * camRadius;
+      this.camera.position.z = Math.cos(elapsedTime * camOrbitSpeed) * camRadius;
+      this.camera.position.y = 3.2 + Math.sin(elapsedTime * 0.15 * motionEnergy) * 0.4;
       this.camera.lookAt(0, 1.6, 0);
     }
 
@@ -260,6 +304,20 @@ export class Engine {
     if (this.audioAnalyzer && this.audioAnalyzer.isPlaying) {
       const audioMetrics = this.audioAnalyzer.update(elapsedTime);
       freqData = this.audioAnalyzer.frequencyData;
+
+      // After a short real-audio sample, upgrade the initial recipe using the
+      // track's sound balance. This works for EDM and ordinary music alike.
+      const profile = audioMetrics.profile;
+      if (this.songVisualDNA && profile?.key && profile.key !== 'ANALYZING' && profile.key !== this.lastAudioProfileKey) {
+        this.lastAudioProfileKey = profile.key;
+        this.songVisualDNA = createSongVisualDNA(
+          this.songVisualDNA.songFingerprint,
+          this.currentPrediction?.predictedCategory,
+          this.currentPrediction?.particleColor,
+          profile
+        );
+        this.applySongVisualDNA();
+      }
       
       // 1. Bass Frequency (Kick Drums): Trigger physical beat pulse
       if (audioMetrics.isBeat) {

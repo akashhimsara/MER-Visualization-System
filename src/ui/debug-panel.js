@@ -64,6 +64,14 @@ export function createDebugPanel(engineInstance) {
       <div>Rendering: <span style="color: #00ffaa; font-weight: 600;">60 FPS (WebGL)</span></div>
     </div>
 
+    <div style="margin-bottom: 12px; padding: 9px 10px; border-radius: 8px; background: rgba(111, 77, 255, 0.09); border: 1px solid rgba(157, 117, 255, 0.3);">
+      <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+        <span style="font-weight: 700; color: #c9b6ff;">SONG VISUAL DNA</span>
+        <span style="font-size: 9px; color: #8f85a8;">UNIQUE RECIPE</span>
+      </div>
+      <div id="visual-dna-summary" aria-live="polite" style="font-size: 10px; color: #c8c8d4; line-height: 1.45;">Upload a song to generate its visual identity.</div>
+    </div>
+
     <!-- AI Continuous Valence-Arousal Mapper Section -->
     <div style="margin-bottom: 12px; padding: 10px; border-radius: 8px; background: rgba(0, 243, 255, 0.05); border: 1px solid rgba(0, 243, 255, 0.2);">
       <div style="font-weight: 600; color: #00f3ff; margin-bottom: 8px; display: flex; justify-content: space-between;">
@@ -90,15 +98,27 @@ export function createDebugPanel(engineInstance) {
       </div>
     </div>
 
+    <!-- Read-only evidence of the trained model's live parameter prediction -->
+    <div style="margin-bottom: 12px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255, 0, 170, 0.25);">
+      <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+        <span style="font-weight: 700; color: #ff74bd;">MODEL OUTPUT</span>
+        <span style="font-size: 9px; color: #00ffaa;">TRAINED BASELINE</span>
+      </div>
+      <div id="model-output-summary" aria-live="polite" style="font-size: 10px; color: #c8c8d4; line-height: 1.55;">Select an emotion or move the VA controls.</div>
+    </div>
+
     <!-- 3D Geometry Mode Selector -->
     <div style="margin-bottom: 12px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 243, 255, 0.2);">
       <div style="font-weight: 600; color: #00f3ff; margin-bottom: 6px;">🎮 3D Visualizer Mode</div>
       <select id="visual-mode-select" style="width: 100%; padding: 6px; border-radius: 5px; border: 1px solid #00f3ff; background: rgba(0,243,255,0.1); color: #fff; cursor: pointer; font-weight: 600;">
         <option value="LIQUID_CHROME_GALAXY" style="background: #111; color: #00f3ff;">🌊 LIQUID CHROME GALAXY (Tomorrowland Master)</option>
-        <option value="NEON_TUNNEL" style="background: #111; color: #fff;">NEON TUNNEL (Energetic)</option>
-        <option value="EQUALIZER_RING" style="background: #111; color: #fff;">EQUALIZER RING (Happy)</option>
-        <option value="HOLOGRAPHIC_CORE" style="background: #111; color: #fff;">HOLOGRAPHIC CORE (Calm)</option>
-        <option value="HORIZON_GRID" style="background: #111; color: #fff;">HORIZON GRID (Sad)</option>
+        <option value="NEON_MANDALA" style="background: #111; color: #9efcff;">✦ NEON MANDALA (Procedural Art)</option>
+        <option value="COSMIC_BLOOM" style="background: #111; color: #bfffe9;">✧ COSMIC BLOOM (Energy Tree)</option>
+        <option value="PARTICLE_AURORA" style="background: #111; color: #8dfaff;">≈ PARTICLE AURORA (Flow Field)</option>
+        <option value="VOID_PORTAL" style="background: #111; color: #ff8ed8;">◉ VOID PORTAL (Bass Vortex)</option>
+        <option value="CRYSTAL_CATHEDRAL" style="background: #111; color: #c8faff;">CRYSTAL CATHEDRAL (Uplifting / Vocal)</option>
+        <option value="SOLAR_ECLIPSE" style="background: #111; color: #ffd184;">SOLAR ECLIPSE (Cinematic / Emotional)</option>
+        <option value="NEON_LOTUS" style="background: #111; color: #aaffee;">NEON LOTUS (Vocal / Acoustic)</option>
       </select>
     </div>
 
@@ -122,6 +142,14 @@ export function createDebugPanel(engineInstance) {
   const audioFilenameLabel = panel.querySelector('#audio-filename');
   const playBtn = panel.querySelector('#play-audio-btn');
   const pauseBtn = panel.querySelector('#pause-audio-btn');
+  const visualDnaSummary = panel.querySelector('#visual-dna-summary');
+
+  const renderVisualDNA = (recipe) => {
+    if (!visualDnaSummary || !recipe) return;
+    const primary = `#${recipe.palette.primary.toString(16).padStart(6, '0')}`.toUpperCase();
+    panel.dataset.audioProfile = recipe.audioProfile?.key || 'ANALYZING';
+    visualDnaSummary.textContent = `${recipe.visualMode.replaceAll('_', ' ')} · ${recipe.emotionCategory} · seed ${recipe.seed.toString(16).toUpperCase()} · ${primary}`;
+  };
 
   chooseAudioBtn.addEventListener('click', () => {
     fileInput.click();
@@ -132,7 +160,7 @@ export function createDebugPanel(engineInstance) {
     if (file) {
       audioFilenameLabel.textContent = file.name;
       if (engineInstance.engine && engineInstance.engine.loadAudioFile) {
-        engineInstance.engine.loadAudioFile(file);
+        renderVisualDNA(engineInstance.engine.loadAudioFile(file));
       }
     }
   });
@@ -154,6 +182,13 @@ export function createDebugPanel(engineInstance) {
   const aroSlider = panel.querySelector('#arousal-slider');
   const valDisp = panel.querySelector('#val-val-disp');
   const aroDisp = panel.querySelector('#aro-val-disp');
+  const modelOutputSummary = panel.querySelector('#model-output-summary');
+
+  const renderModelOutput = (prediction) => {
+    if (!modelOutputSummary || !prediction) return;
+    const colour = `#${prediction.particleColor.toString(16).padStart(6, '0')}`.toUpperCase();
+    modelOutputSummary.textContent = `${prediction.predictedCategory} · ${prediction.particleDensity} particles · speed ${prediction.motionSpeed.toFixed(2)} · bloom ${prediction.bloomStrength.toFixed(2)} · ${colour}`;
+  };
 
   const updateAISliders = () => {
     const v = parseFloat(valSlider.value);
@@ -162,7 +197,7 @@ export function createDebugPanel(engineInstance) {
     aroDisp.textContent = a.toFixed(2);
 
     if (engineInstance.setValenceArousal) {
-      engineInstance.setValenceArousal(v, a);
+      renderModelOutput(engineInstance.setValenceArousal(v, a));
     }
     if (activeLabel) {
       activeLabel.textContent = `AI MAPPER (V:${v.toFixed(1)}, A:${a.toFixed(1)})`;
@@ -177,6 +212,15 @@ export function createDebugPanel(engineInstance) {
 
   // Wire 3D Visualizer Mode Select Dropdown
   const modeSelect = panel.querySelector('#visual-mode-select');
+
+  window.addEventListener('songvisualdna', (event) => {
+    const recipe = event.detail;
+    renderVisualDNA(recipe);
+    if (modeSelect && recipe?.visualMode) {
+      modeSelect.value = recipe.visualMode;
+    }
+  });
+
   if (modeSelect) {
     modeSelect.addEventListener('change', (e) => {
       const selectedMode = e.target.value;
@@ -195,7 +239,7 @@ export function createDebugPanel(engineInstance) {
       const emotion = btn.getAttribute('data-emotion');
       
       // Call setEmotion on Engine
-      engineInstance.setEmotion(emotion, 2.0);
+      renderModelOutput(engineInstance.setEmotion(emotion, 2.0));
       
       if (activeLabel) {
         activeLabel.textContent = emotion + ' (LOCKED)';
@@ -227,4 +271,9 @@ export function createDebugPanel(engineInstance) {
       panel.style.display = isHidden ? 'none' : 'block';
     }
   });
+
+  // Display the initial trained-model output without changing the initial scene.
+  if (engineInstance.engine?.aiModel) {
+    renderModelOutput(engineInstance.engine.aiModel.predict(0.60, -0.50));
+  }
 }

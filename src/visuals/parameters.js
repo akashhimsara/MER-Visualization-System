@@ -4,6 +4,7 @@ import { setMotionSpeed, setMotionIntensity } from './animation.js';
 import { setLightColor, setLightIntensity } from './lighting.js';
 import { setSpectrumColor } from './spectrum.js';
 import { setAvatarEntityState } from './avatar.js';
+import { setParticleDensity } from './particles.js';
 
 /**
  * Default visual parameter configuration.
@@ -72,7 +73,7 @@ export const VISUAL_PROFILES = {
  * @param {object} params - Visual parameters object
  */
 export function applyVisualParameters(engineState, params = {}) {
-  if (!engineState) return;
+  if (!engineState) return null;
 
   const { scene, placeholderMesh, particles, lighting, modeManager, bloomPass } = engineState;
 
@@ -88,6 +89,9 @@ export function applyVisualParameters(engineState, params = {}) {
     }
     if (params.particleOpacity !== undefined) {
       particles.material.opacity = params.particleOpacity;
+    }
+    if (params.particleDensity !== undefined) {
+      setParticleDensity(particles, params.particleDensity);
     }
     particles.material.needsUpdate = true;
   }
@@ -139,13 +143,12 @@ export function applyVisualParameters(engineState, params = {}) {
       }
       if (params.lightIntensity !== undefined) {
         lighting.pointLight.intensity = params.lightIntensity;
-        if (!lighting.pointLight.userData) lighting.pointLight.userData = {};
-        lighting.pointLight.userData.baseIntensity = params.lightIntensity;
+        lighting.basePointIntensity = params.lightIntensity;
       }
     }
     if (lighting.ambientLight) {
-      if (!lighting.ambientLight.userData) lighting.ambientLight.userData = {};
-      lighting.ambientLight.userData.baseIntensity = lighting.ambientLight.intensity || 0.4;
+      lighting.baseAmbientIntensity = Math.max(0.16, Math.min(0.75, (params.lightIntensity || lighting.basePointIntensity || 1.5) * 0.16));
+      lighting.ambientLight.intensity = lighting.baseAmbientIntensity;
     }
   }
 
@@ -158,4 +161,6 @@ export function applyVisualParameters(engineState, params = {}) {
   if (bloomPass && params.bloomStrength !== undefined) {
     bloomPass.strength = params.bloomStrength;
   }
+
+  return params;
 }

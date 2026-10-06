@@ -11,7 +11,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "generate:mapping-dataset": "node scripts/generate_mapping_dataset.mjs",
-    "train:mapping-model": "py scripts/train_mapping_model.py"
+    "train:mapping-model": "py scripts/train_mapping_model.py",
+    "verify:song-dna": "node scripts/verify_song_visual_dna.mjs"
   },
   "repository": {
     "type": "git",

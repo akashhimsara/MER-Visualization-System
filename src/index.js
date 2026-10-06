@@ -55,7 +55,7 @@ export class VisualizationEngine {
    * @param {number} durationSeconds - Transition duration in seconds (default: 2.0s)
    */
   setEmotion(emotionName, durationSeconds = 2.0) {
-    this.engine.transitionToEmotion(emotionName, durationSeconds);
+    return this.engine.transitionToEmotion(emotionName, durationSeconds);
   }
 
   /**
@@ -84,7 +84,7 @@ export class VisualizationEngine {
    * @param {boolean} smoothTransition - If true, lerps color values smoothly
    */
   updateParameters(parametersBundle, smoothTransition = true) {
-    this.engine.updateVisualParameters(parametersBundle, smoothTransition);
+    return this.engine.updateVisualParameters(parametersBundle, smoothTransition);
   }
 
   /**

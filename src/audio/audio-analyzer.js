@@ -18,6 +18,8 @@ export class AudioAnalyzer {
     this.highEnergy = 0;
     this.beatThreshold = 0.65; // Threshold for bass kick detection
     this.lastBeatTime = 0;
+    this.profileSamples = 0;
+    this.profileTotals = { bass: 0, mid: 0, high: 0 };
   }
 
   /**
@@ -40,6 +42,10 @@ export class AudioAnalyzer {
     this.source.connect(this.analyser);
     this.analyser.connect(this.audioContext.destination);
 
+    this.audioElement.addEventListener('ended', () => { this.isPlaying = false; });
+    this.audioElement.addEventListener('pause', () => { this.isPlaying = false; });
+    this.audioElement.addEventListener('play', () => { this.isPlaying = true; });
+
     this.isInitialized = true;
   }
 
@@ -50,9 +56,45 @@ export class AudioAnalyzer {
   loadAudioFile(file) {
     if (!this.audioElement) return;
 
+    if (this.fileURL) URL.revokeObjectURL(this.fileURL);
     const fileURL = URL.createObjectURL(file);
+    this.fileURL = fileURL;
     this.audioElement.src = fileURL;
     this.audioElement.load();
+    this.resetAudioProfile();
+  }
+
+  resetAudioProfile() {
+    this.profileSamples = 0;
+    this.profileTotals = { bass: 0, mid: 0, high: 0 };
+  }
+
+  /**
+   * A lightweight, live sound signature. It is not a genre classifier.
+   */
+  getAudioProfile() {
+    if (this.profileSamples < 90) {
+      return { key: 'ANALYZING', confidence: 0, samples: this.profileSamples };
+    }
+
+    const bass = this.profileTotals.bass / this.profileSamples;
+    const mid = this.profileTotals.mid / this.profileSamples;
+    const high = this.profileTotals.high / this.profileSamples;
+    const total = Math.max(0.001, bass + mid + high);
+    let key = 'BALANCED';
+
+    if ((bass / total) > 0.43 && bass > 0.18) key = 'PULSE_DRIVEN';
+    else if ((mid / total) > 0.43 && mid > 0.12) key = 'VOCAL_FORWARD';
+    else if ((high / total) > 0.40 && bass < 0.20) key = 'AIRY_AMBIENT';
+    else if (bass < 0.16 && mid < 0.20 && high < 0.20) key = 'SOFT_ACOUSTIC';
+
+    return {
+      key,
+      confidence: Math.min(0.99, this.profileSamples / 360),
+      samples: this.profileSamples,
+      energy: Number(((bass + mid + high) / 3).toFixed(3)),
+      bands: { bass: Number(bass.toFixed(3)), mid: Number(mid.toFixed(3)), high: Number(high.toFixed(3)) }
+    };
   }
 
   /**
@@ -111,6 +153,10 @@ export class AudioAnalyzer {
       highSum += this.frequencyData[i];
     }
     this.highEnergy = (highSum / (binCount - midBins)) / 255.0;
+    this.profileSamples += 1;
+    this.profileTotals.bass += this.bassEnergy;
+    this.profileTotals.mid += this.midEnergy;
+    this.profileTotals.high += this.highEnergy;
 
     // Bass Kick Detection (Triggers beat pulse when bass energy spikes above threshold)
     let isBeat = false;
@@ -124,7 +170,8 @@ export class AudioAnalyzer {
       bass: this.bassEnergy,
       mid: this.midEnergy,
       high: this.highEnergy,
-      isBeat
+      isBeat,
+      profile: this.getAudioProfile()
     };
   }
 }
