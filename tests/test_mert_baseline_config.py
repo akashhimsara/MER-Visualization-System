@@ -94,6 +94,12 @@ assert (
     is False
 )
 
+assert (
+    config["dataset"]["target_manifest"]
+    == "data/processed/deam_paired_va_targets_v1.csv"
+)
+print("Canonical target manifest: PASS")
+
 
 # --------------------------------------------------
 # Metrics

@@ -9,7 +9,7 @@ task:
 
 dataset:
   name: DEAM
-  target_manifest: data/processed/deam_target_manifest_v1.csv
+  target_manifest: data/processed/deam_paired_va_targets_v1.csv 
   split_file: data/splits/deam_song_split_v1.csv
   split_unit: song
   test_locked: true
@@ -64,3 +64,5 @@ reproducibility:
 test_policy:
   evaluate_test: false
   reason: locked_until_final_configuration_freeze
+
+ 
