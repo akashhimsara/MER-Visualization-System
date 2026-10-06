@@ -1,0 +1,66 @@
+experiment_family: pretrained_mer
+model_name: m-a-p/MERT-v1-95M
+
+task:
+  type: continuous_regression
+  targets:
+    - valence
+    - arousal
+
+dataset:
+  name: DEAM
+  target_manifest: data/processed/deam_target_manifest_v1.csv
+  split_file: data/splits/deam_song_split_v1.csv
+  split_unit: song
+  test_locked: true
+
+audio:
+  context_seconds: 5.0
+  context_type: causal
+  window_definition: "[t-5.0, t]"
+  sample_rate: 24000
+  resampling: model_native
+  mono: true
+
+representation:
+  model: m-a-p/MERT-v1-95M
+  model_mode: frozen
+  hidden_size: 768
+
+  candidate_layers:
+    - 4
+    - 8
+    - 12
+
+  aggregation:
+    - mean
+
+  layer_selection_split: validation
+
+regression:
+  model: ridge
+  separate_target_models: true
+
+  alpha_candidates:
+    - 0.01
+    - 0.1
+    - 1.0
+    - 10.0
+    - 100.0
+
+  selection_split: validation
+
+evaluation:
+  metrics:
+    - mae
+    - rmse
+    - pearson
+    - ccc
+    - r2
+
+reproducibility:
+  seed: 42
+
+test_policy:
+  evaluate_test: false
+  reason: locked_until_final_configuration_freeze
