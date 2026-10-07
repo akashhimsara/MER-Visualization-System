@@ -49,7 +49,11 @@ def test_feedback_rating_accepts_valid_rating():
         "rating": 4
     }
 
-    assert is_valid(schema("feedback-event"), data)
+    # INTENTIONAL FAILURE:
+    # This should normally be:
+    # assert is_valid(schema("feedback-event"), data)
+
+    assert not is_valid(schema("feedback-event"), data)
 
 
 def test_view_duration_requires_duration_ms():
