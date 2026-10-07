@@ -1,36 +1,49 @@
 name: Contracts CI
 
 on:
-  push:
-    branches:
-      - main
-      - develop
   pull_request:
     branches:
+      - Develop
       - main
-      - develop
+
+  push:
+    branches:
+      - Develop
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  validate-contracts:
+  contract-validation:
+    name: Contract Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements-dev.txt
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+      - name: Install development dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
-      - name: Validate JSON Schemas and Examples
+      - name: Validate schemas and examples
         run: python scripts/validate_contracts.py
 
-      - name: Run pytest for Contract Behavior
-        run: python -m pytest tests/contracts/
+      - name: Run contract behaviour tests
+        run: python -m pytest tests/contracts -q
