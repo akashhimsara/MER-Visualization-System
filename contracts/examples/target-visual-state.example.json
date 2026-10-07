@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.1",
+  "event_type": "visual.target_state",
+  "session_id": "sess_demo_001",
+  "sequence": 38,
+  "audio_time_ms": 12400,
+  "state_id": "state_0038",
+  "preset_id": "neon_tunnel_warm_01",
+  "visual_mode": "NEON_TUNNEL",
+  "parameters": {
+    "particles": {
+      "color": "#ff7700",
+      "density": 350,
+      "size": 0.22,
+      "opacity": 0.85
+    },
+    "motion": {
+      "speed": 1.4,
+      "intensity": 1.2
+    },
+    "lighting": {
+      "color": "#ff8800",
+      "intensity": 2.8,
+      "bloom_strength": 0.45
+    },
+    "background": {
+      "color": "#0c0502"
+    }
+  }
+}

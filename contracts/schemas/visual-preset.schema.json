@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Visual Preset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "preset_id",
+    "preset_version",
+    "display_name",
+    "visual_mode",
+    "parameters"
+  ],
+  "properties": {
+    "preset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "preset_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_mode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parameters": {
+      "type": "object",
+      "required": [
+        "particles",
+        "motion",
+        "lighting",
+        "background"
+      ],
+      "properties": {
+        "particles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color",
+            "density",
+            "size",
+            "opacity"
+          ],
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "density": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "size": {
+              "type": "number",
+              "minimum": 0
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "motion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "speed",
+            "intensity"
+          ],
+          "properties": {
+            "speed": {
+              "type": "number",
+              "minimum": 0
+            },
+            "intensity": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color",
+            "intensity",
+            "bloom_strength"
+          ],
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "intensity": {
+              "type": "number",
+              "minimum": 0
+            },
+            "bloom_strength": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "background": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color"
+          ],
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

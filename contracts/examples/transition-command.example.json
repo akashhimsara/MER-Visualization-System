@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.1",
+  "event_type": "transition.command",
+  "session_id": "sess_demo_001",
+  "sequence": 17,
+  "audio_time_ms": 12800,
+  "command_id": "trans_017",
+  "should_transition": true,
+  "target_state_id": "state_0038",
+  "transition": {
+    "style": "interpolate",
+    "scale": "major",
+    "duration_ms": 1200,
+    "strength": 0.76
+  },
+  "reason": {
+    "emotion_distance": 0.61,
+    "landmark": "onset",
+    "persistence": 0.82
+  }
+}
