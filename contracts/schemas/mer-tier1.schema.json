@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MER Tier 1 Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "session_id",
+    "sequence",
+    "audio_time_ms",
+    "rms",
+    "spectral_centroid_hz",
+    "onset"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1"
+    },
+    "event_type": {
+      "const": "mer.tier1"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "audio_time_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rms": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "spectral_centroid_hz": {
+      "type": "number",
+      "minimum": 0
+    },
+    "onset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detected",
+        "strength"
+      ],
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "beat": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "detected",
+        "strength"
+      ],
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

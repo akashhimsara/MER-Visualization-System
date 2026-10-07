@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Transition Command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "session_id",
+    "sequence",
+    "audio_time_ms",
+    "command_id",
+    "should_transition",
+    "target_state_id",
+    "transition",
+    "reason"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1"
+    },
+    "event_type": {
+      "const": "transition.command"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "audio_time_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "should_transition": {
+      "type": "boolean"
+    },
+    "target_state_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "transition": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "style",
+        "scale",
+        "duration_ms",
+        "strength"
+      ],
+      "properties": {
+        "style": {
+          "enum": [
+            "interpolate"
+          ]
+        },
+        "scale": {
+          "enum": [
+            "minor",
+            "moderate",
+            "major"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "reason": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "emotion_distance",
+        "landmark",
+        "persistence"
+      ],
+      "properties": {
+        "emotion_distance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "landmark": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "persistence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "should_transition": {
+            "const": true
+          }
+        },
+        "required": [
+          "should_transition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "target_state_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transition": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "target_state_id": {
+            "type": "null"
+          },
+          "transition": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

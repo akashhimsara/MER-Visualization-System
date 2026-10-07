@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Personalization Recommendation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "session_id",
+    "sequence",
+    "audio_time_ms",
+    "recommendation_id",
+    "recommended_preset_id",
+    "score",
+    "strategy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1"
+    },
+    "event_type": {
+      "const": "personalization.recommendation"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "audio_time_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recommendation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recommended_preset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "score": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "strategy": {
+      "enum": [
+        "default",
+        "cold_start",
+        "linucb"
+      ]
+    }
+  }
+}
