@@ -8,6 +8,7 @@ import { applyVisualParameters, DEFAULT_VISUAL_PARAMS } from '../visuals/paramet
 import { EMOTION_PRESETS, EMOTION_VA_PRESETS } from '../visuals/emotions.js';
 import { createBeatController, triggerBeatPulse, updateBeatReactor } from '../visuals/beat.js';
 import { AudioAnalyzer } from '../audio/audio-analyzer.js';
+import { createVisualChapterController, updateVisualChapter } from '../audio/visual-chapters.js';
 import { EmotionVisualMapper } from '../ai/mapping-schema.js';
 import { EmotionAIModel } from '../ai/emotion-ai-model.js';
 import { createSongVisualDNA, fingerprintSong } from '../ai/song-visual-dna.js';
@@ -61,12 +62,23 @@ export class Engine {
 
     // Initialize Real Audio Analyzer
     this.audioAnalyzer = new AudioAnalyzer();
+    this.visualChapterController = createVisualChapterController();
+    this.visualChapter = { key: 'DORMANT', intensity: 0 };
+    this.songOutroTriggered = false;
 
     // Initialize AI Mapping Model
     this.aiModel = new EmotionAIModel();
     this.songVisualDNA = null;
+    this.pendingSongFile = null;
+    this.isVisualReady = false;
+    this.lockedVisualFamily = null;
+    // During the Rose polish phase, every demo song opens the same hero
+    // family. This makes visual QA repeatable; Song DNA still varies palette,
+    // seed and motion. Remove this override once all four families are ready.
+    this.visualPreviewFamily = VISUAL_MODES.COSMIC_BLOOM;
     this.lastAudioProfileKey = 'ANALYZING';
     this.currentPrediction = null;
+    this.lastAudioHudUpdate = -Infinity;
 
     // Emotion Settings
     this.emotionKeys = Object.keys(EMOTION_PRESETS);
@@ -79,6 +91,7 @@ export class Engine {
 
     // Mount canvas to DOM container
     this.container.appendChild(this.renderer.domElement);
+    this.hideVisualForSetup();
 
     // Bind event handlers
     this.onWindowResize = this.onWindowResize.bind(this);
@@ -110,7 +123,10 @@ export class Engine {
    */
   setVisualMode(modeKey) {
     if (this.modeManager) {
+      this.autoEmotionCycle = false;
       this.modeManager.switchMode(modeKey);
+      this.modeManager.startModeIntro(modeKey, this.getStoryTime());
+      if (this.particles) this.particles.visible = ![VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.COSMIC_BLOOM].includes(modeKey);
     }
   }
 
@@ -135,7 +151,22 @@ export class Engine {
     }
     // A real song must not be overwritten by the no-audio demo emotion cycle.
     this.autoEmotionCycle = false;
-    return this.createSongVisualDNA(file);
+    this.songOutroTriggered = false;
+    this.pendingSongFile = file;
+    this.songVisualDNA = null;
+    this.lockedVisualFamily = this.visualPreviewFamily;
+    this.hideVisualForSetup();
+    return null;
+  }
+
+  /** Keep the stage intentionally empty until a song and sample emotion are chosen. */
+  hideVisualForSetup() {
+    this.isVisualReady = false;
+    if (this.modeManager?.modes) {
+      Object.values(this.modeManager.modes).forEach((group) => { group.visible = false; });
+    }
+    if (this.particles) this.particles.visible = false;
+    if (this.placeholderMesh) this.placeholderMesh.visible = false;
   }
 
   /**
@@ -148,7 +179,8 @@ export class Engine {
     const fingerprint = fingerprintSong(file);
     const audioProfile = this.audioAnalyzer?.getAudioProfile() || { key: 'ANALYZING' };
     this.lastAudioProfileKey = audioProfile.key;
-    this.songVisualDNA = createSongVisualDNA(fingerprint, prediction.predictedCategory, prediction.particleColor, audioProfile);
+    this.songVisualDNA = createSongVisualDNA(fingerprint, prediction.predictedCategory, prediction.particleColor, audioProfile, this.lockedVisualFamily);
+    this.lockedVisualFamily ||= this.songVisualDNA.visualMode;
     this.applySongVisualDNA();
     return this.songVisualDNA;
   }
@@ -157,6 +189,10 @@ export class Engine {
     if (!this.songVisualDNA || !this.modeManager) return null;
     const { palette, variation, visualMode } = this.songVisualDNA;
     this.modeManager.switchMode(visualMode);
+    this.isVisualReady = true;
+    if (this.audioAnalyzer?.isPlaying) this.modeManager.startModeIntro(visualMode, this.getStoryTime());
+    else this.modeManager.armModeIntro(visualMode);
+    if (this.particles) this.particles.visible = ![VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.COSMIC_BLOOM].includes(visualMode);
     this.modeManager.setModeFromEmotion(this.songVisualDNA.emotionCategory, palette.primary, palette.secondary);
     window.dispatchEvent(new CustomEvent('songvisualdna', { detail: this.songVisualDNA }));
     return this.songVisualDNA;
@@ -168,6 +204,11 @@ export class Engine {
   async playAudio() {
     if (this.audioAnalyzer) {
       await this.audioAnalyzer.play();
+      // Start a story only from the beginning of a track. Resume must preserve
+      // the exact point in the visual narrative instead of replaying the intro.
+      if ((this.audioAnalyzer.audioElement?.currentTime || 0) < 0.15) {
+        this.modeManager?.startModeIntro(this.modeManager.activeMode, this.getStoryTime());
+      }
     }
   }
 
@@ -178,6 +219,11 @@ export class Engine {
     if (this.audioAnalyzer) {
       this.audioAnalyzer.pause();
     }
+  }
+
+  /** The story timeline is tied to the music, so pause/resume never desynchronises it. */
+  getStoryTime() {
+    return this.audioAnalyzer?.audioElement?.currentTime ?? this.clock.getElapsedTime();
   }
 
   /**
@@ -203,7 +249,9 @@ export class Engine {
     }
     const key = String(emotionName).toUpperCase();
     const vaPreset = EMOTION_VA_PRESETS[key] || EMOTION_VA_PRESETS.CALM;
-    return this.setValenceArousal(vaPreset.valence, vaPreset.arousal, userInitiated);
+    const prediction = this.setValenceArousal(vaPreset.valence, vaPreset.arousal, userInitiated);
+    if (this.pendingSongFile) this.createSongVisualDNA(this.pendingSongFile);
+    return prediction;
   }
 
   /**
@@ -243,7 +291,8 @@ export class Engine {
         this.songVisualDNA.songFingerprint,
         predictedParams.predictedCategory,
         predictedParams.particleColor,
-        this.songVisualDNA.audioProfile
+        this.songVisualDNA.audioProfile,
+        this.lockedVisualFamily
       );
       this.applySongVisualDNA();
     }
@@ -266,10 +315,27 @@ export class Engine {
       const camRadius = dnaVariation?.cameraRadius || 9.0;
       const camOrbitSpeed = dnaVariation?.cameraOrbitSpeed || 0.08;
       const motionEnergy = dnaVariation?.visualEnergy || 1.0;
-      this.camera.position.x = Math.sin(elapsedTime * camOrbitSpeed) * camRadius;
-      this.camera.position.z = Math.cos(elapsedTime * camOrbitSpeed) * camRadius;
-      this.camera.position.y = 3.2 + Math.sin(elapsedTime * 0.15 * motionEnergy) * 0.4;
-      this.camera.lookAt(0, 1.6, 0);
+      const isPortal = this.modeManager?.activeMode === VISUAL_MODES.COSMIC_IRIS;
+      const isRose = this.modeManager?.activeMode === VISUAL_MODES.COSMIC_BLOOM;
+      const portalSurge = this.visualChapter?.key === 'SURGE' ? 1 : 0;
+      const beatPulse = this.beatController?.pulse || 0;
+      const roseStoryTime = this.getStoryTime();
+      const roseGrowth = THREE.MathUtils.smoothstep(8, 46, roseStoryTime);
+      const roseSurge = this.visualChapter?.key === 'SURGE' ? 1 : 0;
+      const targetX = isRose
+        ? Math.sin(elapsedTime * .12) * (.18 + roseGrowth * .34) + Math.sin(elapsedTime * .46) * beatPulse * .075
+        : isPortal ? 0 : Math.sin(elapsedTime * camOrbitSpeed) * camRadius;
+      const targetZ = isRose
+        ? 10.9 - roseGrowth * 2.0 - beatPulse * .22 - roseSurge * .42
+        : isPortal ? 10 - beatPulse * 0.42 - portalSurge * 0.28 : Math.cos(elapsedTime * camOrbitSpeed) * camRadius;
+      const targetY = isRose
+        ? 2.86 + Math.sin(elapsedTime * .17) * .10 + beatPulse * .035
+        : isPortal ? 1.45 : 3.2 + Math.sin(elapsedTime * 0.15 * motionEnergy) * 0.4;
+      this.camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), Math.min(1, deltaTime * 4.5));
+      // The rose camera begins wide for the garden establishing shot and
+      // closes in gradually as the bloom grows; bass adds only a restrained
+      // cinematic push, never a distracting shake.
+      this.camera.lookAt(0, isRose ? .46 + roseGrowth * .60 : 1.6, 0);
     }
 
     // Central Core Emblem & Dual Counter-Rotating Orbital Rings
@@ -303,6 +369,20 @@ export class Engine {
     let freqData = null;
     if (this.audioAnalyzer && this.audioAnalyzer.isPlaying) {
       const audioMetrics = this.audioAnalyzer.update(elapsedTime);
+      this.visualChapter = updateVisualChapter(this.visualChapterController, audioMetrics, elapsedTime, deltaTime);
+      window.dispatchEvent(new CustomEvent('visualchapter', { detail: this.visualChapter }));
+      if (elapsedTime - this.lastAudioHudUpdate >= 0.1) {
+        this.lastAudioHudUpdate = elapsedTime;
+        window.dispatchEvent(new CustomEvent('audioanalysis', {
+          detail: {
+            bass: audioMetrics.bass,
+            mid: audioMetrics.mid,
+            high: audioMetrics.high,
+            isBeat: audioMetrics.isBeat,
+            profile: audioMetrics.profile?.key || 'ANALYZING'
+          }
+        }));
+      }
       freqData = this.audioAnalyzer.frequencyData;
 
       // After a short real-audio sample, upgrade the initial recipe using the
@@ -314,7 +394,8 @@ export class Engine {
           this.songVisualDNA.songFingerprint,
           this.currentPrediction?.predictedCategory,
           this.currentPrediction?.particleColor,
-          profile
+          profile,
+          this.lockedVisualFamily
         );
         this.applySongVisualDNA();
       }
@@ -338,6 +419,11 @@ export class Engine {
         this.particles.material.size = THREE.MathUtils.lerp(this.particles.material.size, targetSize, deltaTime * 10.0);
       }
     } else {
+      this.visualChapter = updateVisualChapter(this.visualChapterController, null, elapsedTime, deltaTime);
+      if (this.audioAnalyzer?.hasEnded && !this.songOutroTriggered) {
+        this.songOutroTriggered = true;
+        this.modeManager?.startModeOutro(this.modeManager.activeMode, this.getStoryTime());
+      }
       // Smoothly return particle size to baseline when audio stops
       if (this.particles && this.particles.material) {
         const baseSize = this.particles.userData?.baseSize || 0.45;
@@ -347,7 +433,37 @@ export class Engine {
 
     // Update 3D Visual Geometry Modes with real audio frequency & beat pulse
     if (this.modeManager) {
-      this.modeManager.update(freqData, deltaTime, elapsedTime, this.beatController?.pulse || 0.0);
+      this.modeManager.update(freqData, deltaTime, elapsedTime, this.beatController?.pulse || 0.0, this.visualChapter, this.getStoryTime());
+    }
+
+    // This world is a focused energy system, not a tinted generic scene.
+    // Keep its negative space dark even when the VA mapper updates global colours.
+    if (this.modeManager?.activeMode === VISUAL_MODES.LIQUID_CHROME_GALAXY) {
+      this.scene.background.set(0x020306);
+    }
+
+    // The Rose story needs cinematic negative space; its fog and moonlight
+    // provide the colour, rather than a washed-out global scene background.
+    if (this.modeManager?.activeMode === VISUAL_MODES.COSMIC_BLOOM) {
+      const roseSky = {
+        HAPPY: 0x1b5079,     // clean daylight-blue sky, not a starry night
+        CALM: 0x06152c,
+        SAD: 0x0b1728,
+        ENERGETIC: 0x190c32
+      }[this.currentPrediction?.predictedCategory] ?? 0x02040d;
+      this.scene.background.set(roseSky);
+    }
+
+    if (this.bloomPass && this.modeManager?.activeMode === VISUAL_MODES.COSMIC_IRIS) {
+      const surge = this.visualChapter?.key === 'SURGE' ? 0.34 : 0;
+      const targetBloom = 0.72 + surge + (this.beatController?.pulse || 0) * 0.38;
+      this.bloomPass.strength = THREE.MathUtils.lerp(this.bloomPass.strength, targetBloom, deltaTime * 4.5);
+    }
+
+    // Layered rose petals need colour separation more than maximum bloom.
+    if (this.bloomPass && this.modeManager?.activeMode === VISUAL_MODES.COSMIC_BLOOM) {
+      const targetBloom = 0.10 + (this.visualChapter?.key === 'SURGE' ? 0.07 : 0) + (this.beatController?.pulse || 0) * 0.05;
+      this.bloomPass.strength = THREE.MathUtils.lerp(this.bloomPass.strength, targetBloom, deltaTime * 4.0);
     }
 
     // Update audio-reactive EDM beat pulse reaction

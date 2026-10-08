@@ -134,10 +134,10 @@ const liquidChromeFragmentShader = `
     float timeMix = sin(uTime * 0.8 + vPosition.y * 1.2) * 0.5 + 0.5;
     vec3 finalBaseColor = mix(colorAB, uColorTertiary, timeMix * 0.4);
 
-    vec3 metallicGlow = finalBaseColor * (0.50 + spec * 0.70);
-    vec3 fresnelNeonRim = uColorSecondary * fresnel * (0.70 + uAudioHigh * 0.35);
+    vec3 metallicGlow = finalBaseColor * (0.20 + spec * 0.56);
+    vec3 fresnelNeonRim = uColorSecondary * fresnel * (0.34 + uAudioHigh * 0.28);
 
-    vec3 finalColor = clamp(metallicGlow + fresnelNeonRim, 0.0, 1.0);
+    vec3 finalColor = metallicGlow + fresnelNeonRim;
 
     gl_FragColor = vec4(finalColor, 0.95);
   }
@@ -152,7 +152,7 @@ const liquidChromeFragmentShader = `
  */
 export function createLiquidChromeCore(primaryColor = 0xff00a0, secondaryColor = 0x00f3ff, tertiaryColor = 0xffaa00) {
   // Sleek geometry radius = 0.90 (elegant floating focal jewel)
-  const geometry = new THREE.SphereGeometry(0.90, 128, 128);
+  const geometry = new THREE.IcosahedronGeometry(1.12, 5);
 
   const material = new THREE.ShaderMaterial({
     vertexShader: liquidChromeVertexShader,
@@ -163,7 +163,7 @@ export function createLiquidChromeCore(primaryColor = 0xff00a0, secondaryColor =
       uAudioMid: { value: 0.0 },
       uAudioHigh: { value: 0.0 },
       uNoiseFrequency: { value: 0.90 },
-      uNoiseAmplitude: { value: 0.18 },
+      uNoiseAmplitude: { value: 0.11 },
       uFresnelPower: { value: 2.2 },
       uColorPrimary: { value: new THREE.Color(primaryColor) },
       uColorSecondary: { value: new THREE.Color(secondaryColor) },
@@ -215,7 +215,7 @@ export function updateLiquidChromeCore(coreMesh, frequencyData, deltaTime = 0.01
   uniforms.uAudioHigh.value = THREE.MathUtils.lerp(uniforms.uAudioHigh.value, high, deltaTime * 10.0);
 
   // Elegant Scale Pulse on Beat Hit (clamped to max 1.15)
-  const sphereScale = 1.0 + (bass * 0.15);
+  const sphereScale = 1.0 + (bass * 0.22);
   coreMesh.scale.set(sphereScale, sphereScale, sphereScale);
 
   coreMesh.rotation.y = elapsedTime * 0.35;

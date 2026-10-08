@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { createLiquidChromeCore, updateLiquidChromeCore, setLiquidChromeColors } from './shader-core.js';
-import { create50KGalaxy, update50KGalaxy, set50KGalaxyColor } from './galaxy.js';
+import { createEnergyEngine, updateEnergyEngine, setEnergyEngineColors } from './energy-engine.js';
 import { createEqualizerRing, updateSpectrumRing } from './spectrum.js';
 import { createNeonMandala, updateNeonMandala, setNeonMandalaColors } from './mandala.js';
-import { createCosmicBloom, updateCosmicBloom, setCosmicBloomColors } from './cosmic-bloom.js';
+import { createCosmicBloom, updateCosmicBloom, setCosmicBloomColors, setCosmicBloomEmotion, startCosmicBloomIntro, armCosmicBloomIntro, startCosmicBloomOutro } from './cosmic-bloom.js';
 import { createParticleAurora, updateParticleAurora, setParticleAuroraColors } from './particle-aurora.js';
-import { createVoidPortal, updateVoidPortal, setVoidPortalColors } from './void-portal.js';
+import { createVoidPortal, updateVoidPortal, setVoidPortalColors, startVoidPortalIntro, armVoidPortalIntro, startVoidPortalOutro } from './void-portal.js';
 import { createNeonLotus, updateNeonLotus, setNeonLotusColors } from './neon-lotus.js';
 import { createSolarEclipse, updateSolarEclipse, setSolarEclipseColors } from './solar-eclipse.js';
 import { createCrystalCathedral, updateCrystalCathedral, setCrystalCathedralColors } from './crystal-cathedral.js';
@@ -22,7 +21,7 @@ export const VISUAL_MODES = {
   NEON_MANDALA: 'NEON_MANDALA',                 // Mode 5: Procedural geometric neon art
   COSMIC_BLOOM: 'COSMIC_BLOOM',                 // Mode 6: Procedural luminous tree / sacred bloom
   PARTICLE_AURORA: 'PARTICLE_AURORA',           // Mode 7: Full-frame flowing neon particle field
-  VOID_PORTAL: 'VOID_PORTAL',                   // Mode 8: Deep-space particle vortex portal
+  COSMIC_IRIS: 'COSMIC_IRIS',                   // Mode 8: Hypnotic audio-reactive cosmic eye
   NEON_LOTUS: 'NEON_LOTUS',                     // Mode 9: Layered audio-reactive neon flower
   SOLAR_ECLIPSE: 'SOLAR_ECLIPSE',               // Mode 10: Cinematic black sun and corona
   CRYSTAL_CATHEDRAL: 'CRYSTAL_CATHEDRAL'        // Mode 11: Floating luminous crystal architecture
@@ -32,32 +31,7 @@ export const VISUAL_MODES = {
  * Creates the Hybrid Tomorrowland Stage Level Visualizer Group (Liquid Chrome Core + 50K Particle Galaxy).
  */
 function createLiquidChromeGalaxyGroup() {
-  const group = new THREE.Group();
-  group.name = 'mode_liquidChromeGalaxy';
-
-  // 1. Custom GLSL Liquid Chrome Shader Core Mesh
-  const liquidCore = createLiquidChromeCore(0x00f3ff, 0xff00a0);
-  group.add(liquidCore);
-
-  // 2. Soft Energy Atmosphere Aura Sphere
-  const auraGeo = new THREE.SphereGeometry(1.20, 32, 32);
-  const auraMat = new THREE.MeshBasicMaterial({
-    color: 0x00f3ff,
-    transparent: true,
-    opacity: 0.15,
-    blending: THREE.AdditiveBlending,
-    side: THREE.BackSide
-  });
-  const auraMesh = new THREE.Mesh(auraGeo, auraMat);
-  auraMesh.position.set(0, 1.5, 0);
-  group.add(auraMesh);
-
-  // 3. 50,000 Particle Cosmic Stardust Galaxy
-  const galaxyPoints = create50KGalaxy(50000, 0x00f3ff);
-  group.add(galaxyPoints);
-
-  group.userData = { liquidCore, auraMesh, galaxyPoints };
-  return group;
+  return createEnergyEngine();
 }
 
 /**
@@ -230,7 +204,7 @@ export class VisualModeManager {
       [VISUAL_MODES.NEON_MANDALA]: createNeonMandala(),
       [VISUAL_MODES.COSMIC_BLOOM]: createCosmicBloom(),
       [VISUAL_MODES.PARTICLE_AURORA]: createParticleAurora(),
-      [VISUAL_MODES.VOID_PORTAL]: createVoidPortal(),
+      [VISUAL_MODES.COSMIC_IRIS]: createVoidPortal(),
       [VISUAL_MODES.NEON_LOTUS]: createNeonLotus(),
       [VISUAL_MODES.SOLAR_ECLIPSE]: createSolarEclipse(),
       [VISUAL_MODES.CRYSTAL_CATHEDRAL]: createCrystalCathedral()
@@ -258,6 +232,21 @@ export class VisualModeManager {
     });
   }
 
+  startModeIntro(modeKey, elapsedTime = 0) {
+    if (modeKey === VISUAL_MODES.COSMIC_IRIS) startVoidPortalIntro(this.modes[modeKey], elapsedTime);
+    if (modeKey === VISUAL_MODES.COSMIC_BLOOM) startCosmicBloomIntro(this.modes[modeKey], elapsedTime);
+  }
+
+  armModeIntro(modeKey) {
+    if (modeKey === VISUAL_MODES.COSMIC_IRIS) armVoidPortalIntro(this.modes[modeKey]);
+    if (modeKey === VISUAL_MODES.COSMIC_BLOOM) armCosmicBloomIntro(this.modes[modeKey]);
+  }
+
+  startModeOutro(modeKey, elapsedTime = 0) {
+    if (modeKey === VISUAL_MODES.COSMIC_IRIS) startVoidPortalOutro(this.modes[modeKey], elapsedTime);
+    if (modeKey === VISUAL_MODES.COSMIC_BLOOM) startCosmicBloomOutro(this.modes[modeKey], elapsedTime);
+  }
+
   /**
    * Automatically selects 3D Visual Mode and updates Colors based on AI predicted emotion.
    * @param {string} emotionCategory 
@@ -269,23 +258,19 @@ export class VisualModeManager {
     const mandalaGroup = this.modes[VISUAL_MODES.NEON_MANDALA];
     const bloomGroup = this.modes[VISUAL_MODES.COSMIC_BLOOM];
     const auroraGroup = this.modes[VISUAL_MODES.PARTICLE_AURORA];
-    const portalGroup = this.modes[VISUAL_MODES.VOID_PORTAL];
+    const portalGroup = this.modes[VISUAL_MODES.COSMIC_IRIS];
     const lotusGroup = this.modes[VISUAL_MODES.NEON_LOTUS];
     const eclipseGroup = this.modes[VISUAL_MODES.SOLAR_ECLIPSE];
     const cathedralGroup = this.modes[VISUAL_MODES.CRYSTAL_CATHEDRAL];
     if (liquidGroup && liquidGroup.userData) {
-      const { liquidCore, auraMesh, galaxyPoints } = liquidGroup.userData;
       if (primaryColor === undefined) return;
-
-      const accentColor = secondaryColor ?? 0xff00a0;
-      if (liquidCore) setLiquidChromeColors(liquidCore, primaryColor, accentColor);
-      if (auraMesh?.material?.color) {
-        auraMesh.material.color.set(primaryColor);
-      }
-      if (galaxyPoints) set50KGalaxyColor(galaxyPoints, primaryColor);
+      setEnergyEngineColors(liquidGroup, primaryColor, secondaryColor);
     }
     if (mandalaGroup) setNeonMandalaColors(mandalaGroup, primaryColor, secondaryColor);
-    if (bloomGroup) setCosmicBloomColors(bloomGroup, primaryColor, secondaryColor);
+    if (bloomGroup) {
+      setCosmicBloomColors(bloomGroup, primaryColor, secondaryColor);
+      setCosmicBloomEmotion(bloomGroup, emotionCategory);
+    }
     if (auroraGroup) setParticleAuroraColors(auroraGroup, primaryColor, secondaryColor);
     if (portalGroup) setVoidPortalColors(portalGroup, primaryColor, secondaryColor);
     if (lotusGroup) setNeonLotusColors(lotusGroup, primaryColor, secondaryColor);
@@ -296,18 +281,12 @@ export class VisualModeManager {
   /**
    * Updates current active 3D mode geometry & audio reactivity on every animation frame.
    */
-  update(frequencyData, deltaTime = 0.016, elapsedTime = 0, beatPulse = 0.0) {
+  update(frequencyData, deltaTime = 0.016, elapsedTime = 0, beatPulse = 0.0, chapter = { key: 'FLOW', intensity: 0.2 }, storyTime = elapsedTime) {
     const currentGroup = this.modes[this.activeMode];
     if (!currentGroup) return;
 
     if (this.activeMode === VISUAL_MODES.LIQUID_CHROME_GALAXY) {
-      const { liquidCore, auraMesh, galaxyPoints } = currentGroup.userData;
-      if (liquidCore) updateLiquidChromeCore(liquidCore, frequencyData, deltaTime, elapsedTime, beatPulse);
-      if (galaxyPoints) update50KGalaxy(galaxyPoints, frequencyData, deltaTime, elapsedTime, beatPulse);
-      if (auraMesh) {
-        const auraScale = 1.0 + beatPulse * 0.18;
-        auraMesh.scale.set(auraScale, auraScale, auraScale);
-      }
+      updateEnergyEngine(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse, chapter);
     } else if (this.activeMode === VISUAL_MODES.EQUALIZER_RING) {
       updateSpectrumRing(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
     } else if (this.activeMode === VISUAL_MODES.NEON_TUNNEL) {
@@ -367,11 +346,11 @@ export class VisualModeManager {
     } else if (this.activeMode === VISUAL_MODES.NEON_MANDALA) {
       updateNeonMandala(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
     } else if (this.activeMode === VISUAL_MODES.COSMIC_BLOOM) {
-      updateCosmicBloom(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
+      updateCosmicBloom(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse, chapter, storyTime);
     } else if (this.activeMode === VISUAL_MODES.PARTICLE_AURORA) {
       updateParticleAurora(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
-    } else if (this.activeMode === VISUAL_MODES.VOID_PORTAL) {
-      updateVoidPortal(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
+    } else if (this.activeMode === VISUAL_MODES.COSMIC_IRIS) {
+      updateVoidPortal(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse, chapter);
     } else if (this.activeMode === VISUAL_MODES.NEON_LOTUS) {
       updateNeonLotus(currentGroup, frequencyData, deltaTime, elapsedTime, beatPulse);
     } else if (this.activeMode === VISUAL_MODES.SOLAR_ECLIPSE) {
