@@ -11,6 +11,7 @@ export class AudioAnalyzer {
     this.frequencyData = null;
     this.isInitialized = false;
     this.isPlaying = false;
+    this.hasEnded = false;
 
     // Audio Analysis Parameters
     this.bassEnergy = 0;
@@ -20,6 +21,7 @@ export class AudioAnalyzer {
     this.lastBeatTime = 0;
     this.profileSamples = 0;
     this.profileTotals = { bass: 0, mid: 0, high: 0 };
+    this.bassBaseline = 0;
   }
 
   /**
@@ -42,7 +44,7 @@ export class AudioAnalyzer {
     this.source.connect(this.analyser);
     this.analyser.connect(this.audioContext.destination);
 
-    this.audioElement.addEventListener('ended', () => { this.isPlaying = false; });
+    this.audioElement.addEventListener('ended', () => { this.isPlaying = false; this.hasEnded = true; });
     this.audioElement.addEventListener('pause', () => { this.isPlaying = false; });
     this.audioElement.addEventListener('play', () => { this.isPlaying = true; });
 
@@ -61,6 +63,7 @@ export class AudioAnalyzer {
     this.fileURL = fileURL;
     this.audioElement.src = fileURL;
     this.audioElement.load();
+    this.hasEnded = false;
     this.resetAudioProfile();
   }
 
@@ -107,6 +110,7 @@ export class AudioAnalyzer {
     }
     await this.audioElement.play();
     this.isPlaying = true;
+    this.hasEnded = false;
   }
 
   /**
@@ -153,6 +157,7 @@ export class AudioAnalyzer {
       highSum += this.frequencyData[i];
     }
     this.highEnergy = (highSum / (binCount - midBins)) / 255.0;
+    this.bassBaseline += (this.bassEnergy - this.bassBaseline) * 0.035;
     this.profileSamples += 1;
     this.profileTotals.bass += this.bassEnergy;
     this.profileTotals.mid += this.midEnergy;
@@ -161,7 +166,8 @@ export class AudioAnalyzer {
     // Bass Kick Detection (Triggers beat pulse when bass energy spikes above threshold)
     let isBeat = false;
     const minBeatInterval = 0.25; // Limit kick triggers to max 4 beats per sec (~240 BPM max)
-    if (this.bassEnergy > this.beatThreshold && (currentTime - this.lastBeatTime) > minBeatInterval) {
+    const adaptiveThreshold = Math.max(0.18, this.bassBaseline * 1.24);
+    if (this.bassEnergy > adaptiveThreshold && (currentTime - this.lastBeatTime) > minBeatInterval) {
       isBeat = true;
       this.lastBeatTime = currentTime;
     }
