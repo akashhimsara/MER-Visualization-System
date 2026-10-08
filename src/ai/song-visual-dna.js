@@ -2,17 +2,17 @@ import * as THREE from 'three';
 import { VISUAL_MODES } from '../visuals/modes.js';
 
 const MODE_FAMILIES = {
-  CALM: [VISUAL_MODES.CRYSTAL_CATHEDRAL, VISUAL_MODES.SOLAR_ECLIPSE, VISUAL_MODES.NEON_LOTUS, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.PARTICLE_AURORA],
-  HAPPY: [VISUAL_MODES.CRYSTAL_CATHEDRAL, VISUAL_MODES.NEON_LOTUS, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.PARTICLE_AURORA],
-  ENERGETIC: [VISUAL_MODES.VOID_PORTAL, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.LIQUID_CHROME_GALAXY],
-  SAD: [VISUAL_MODES.SOLAR_ECLIPSE, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.NEON_LOTUS]
+  CALM: [VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.COSMIC_BLOOM],
+  HAPPY: [VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.NEON_MANDALA],
+  ENERGETIC: [VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.PARTICLE_AURORA],
+  SAD: [VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.PARTICLE_AURORA]
 };
 
 const PROFILE_MODE_FAMILIES = {
-  PULSE_DRIVEN: [VISUAL_MODES.VOID_PORTAL, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.PARTICLE_AURORA],
-  VOCAL_FORWARD: [VISUAL_MODES.CRYSTAL_CATHEDRAL, VISUAL_MODES.NEON_LOTUS, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.PARTICLE_AURORA],
-  SOFT_ACOUSTIC: [VISUAL_MODES.NEON_LOTUS, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.SOLAR_ECLIPSE, VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.LIQUID_CHROME_GALAXY],
-  AIRY_AMBIENT: [VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.LIQUID_CHROME_GALAXY, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.NEON_MANDALA],
+  PULSE_DRIVEN: [VISUAL_MODES.NEON_MANDALA, VISUAL_MODES.PARTICLE_AURORA],
+  VOCAL_FORWARD: [VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.COSMIC_IRIS],
+  SOFT_ACOUSTIC: [VISUAL_MODES.COSMIC_BLOOM, VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.PARTICLE_AURORA],
+  AIRY_AMBIENT: [VISUAL_MODES.COSMIC_IRIS, VISUAL_MODES.PARTICLE_AURORA, VISUAL_MODES.COSMIC_BLOOM],
   BALANCED: null,
   ANALYZING: null
 };
@@ -50,13 +50,13 @@ export function fingerprintSong(file) {
  * Builds a deterministic visual recipe. Same song + same emotion = same
  * recipe; a different song can select a different compatible visual family.
  */
-export function createSongVisualDNA(songFingerprint, emotionCategory, baseColor, audioProfile = { key: 'ANALYZING' }) {
+export function createSongVisualDNA(songFingerprint, emotionCategory, baseColor, audioProfile = { key: 'ANALYZING' }, lockedVisualMode = null) {
   const category = MODE_FAMILIES[emotionCategory] ? emotionCategory : 'CALM';
   const profileKey = PROFILE_MODE_FAMILIES[audioProfile?.key] ? audioProfile.key : 'ANALYZING';
   const seed = hashText(`${songFingerprint.descriptor}|${category}|${profileKey}`);
   const random = randomFromSeed(seed);
   const families = PROFILE_MODE_FAMILIES[profileKey] || MODE_FAMILIES[category];
-  const visualMode = families[Math.floor(random() * families.length)];
+  const visualMode = lockedVisualMode || families[Math.floor(random() * families.length)];
 
   const primaryColor = new THREE.Color(baseColor ?? 0x35f6ff);
   primaryColor.offsetHSL((random() - 0.5) * 0.16, (random() - 0.5) * 0.10, (random() - 0.5) * 0.08);
@@ -69,6 +69,7 @@ export function createSongVisualDNA(songFingerprint, emotionCategory, baseColor,
     emotionCategory: category,
     audioProfile: { key: profileKey, confidence: audioProfile?.confidence || 0 },
     visualMode,
+    isFamilyLocked: Boolean(lockedVisualMode),
     palette: { primary: primaryColor.getHex(), secondary: secondaryColor.getHex() },
     variation: {
       cameraRadius: Number((8.0 + random() * 2.6).toFixed(2)),
