@@ -160,4 +160,5 @@ class TransitionOrchestrator:
             "can_transition": can_transition,
             "transition": transition,
             "persistence": persistence,
+            "ml_probability": ml_probability,
         }
