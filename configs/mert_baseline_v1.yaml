@@ -50,6 +50,18 @@ regression:
 
   selection_split: validation
 
+  selected:
+    valence_layer: 4
+    valence_alpha: 100.0
+    arousal_layer: 8
+    arousal_alpha: 100.0
+    selection_metric: mae
+    selected_using: validation
+    test_evaluated: false
+    status: provisional_pending_latency_comparison
+
+    
+
 evaluation:
   metrics:
     - mae
