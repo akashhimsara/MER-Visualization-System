@@ -1,0 +1,4 @@
+run,processor_mean_ms,mert_mean_ms,pooling_mean_ms,ridge_mean_ms,end_to_end_mean_ms,end_to_end_p95_ms,process_cpu_percent,peak_rss_mb,peak_gpu_allocated_mb,source
+1,0.807,41.856,0.35,0.741,43.796,45.715,387.75,1035.32,516.14,console_summary
+2,0.863,41.082,0.319,0.773,43.08,45.194,394.53,1035.38,516.14,console_summary_and_saved_csv
+3,0.564,43.891,0.246,0.495,45.224,47.454,392.2,1035.7,516.14,console_summary_and_saved_csv
