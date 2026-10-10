@@ -1,8 +1,7 @@
 from src.ml.train_classifier import train_logistic_regression
 from src.ml.evaluate_classifier import evaluate_classifier
 
-
-X_train = [
+X_TRAIN = [
     [1, 0.90, 0.80, 1, 0.75, 1],
     [1, 0.95, 0.90, 1, 0.85, 1],
     [0, 0.85, 1.00, 0, 0.20, 1],
@@ -10,40 +9,25 @@ X_train = [
     [0, 0.90, 0.40, 1, 0.40, 1],
     [0, 0.95, 0.30, 0, 0.25, 1],
 ]
+Y_TRAIN = [1, 1, 0, 0, 0, 0]
 
-y_train = [1, 1, 0, 0, 0, 0]
-
-
-X_test = [
+X_TEST = [
     [1, 0.92, 0.85, 1, 0.80, 1],
     [0, 0.88, 0.90, 0, 0.25, 1],
     [1, 0.65, 0.55, 1, 0.35, 1],
     [0, 0.93, 0.35, 0, 0.20, 1],
 ]
+Y_TEST = [1, 0, 0, 0]
 
-y_test = [1, 0, 0, 0]
 
+def test_evaluate_classifier_returns_valid_metrics():
+    model = train_logistic_regression(X_TRAIN, Y_TRAIN)
+    metrics = evaluate_classifier(model, X_TEST, Y_TEST)
 
-model = train_logistic_regression(
-    X_train,
-    y_train
-)
+    assert "accuracy" in metrics
+    assert "precision" in metrics
+    assert "recall" in metrics
+    assert "f1_score" in metrics
 
-metrics = evaluate_classifier(
-    model,
-    X_test,
-    y_test
-)
-
-assert "accuracy" in metrics
-assert "precision" in metrics
-assert "recall" in metrics
-assert "f1_score" in metrics
-
-assert 0.0 <= metrics["accuracy"] <= 1.0
-assert 0.0 <= metrics["precision"] <= 1.0
-assert 0.0 <= metrics["recall"] <= 1.0
-assert 0.0 <= metrics["f1_score"] <= 1.0
-
-print("ML evaluation test passed!")
-print(metrics)
+    for key in ("accuracy", "precision", "recall", "f1_score"):
+        assert 0.0 <= metrics[key] <= 1.0

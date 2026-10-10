@@ -1,9 +1,6 @@
 from src.pipeline.orchestrator import TransitionOrchestrator
 
-
-orchestrator = TransitionOrchestrator()
-
-test_frames = [
+TEST_FRAMES = [
     (1.0, "Happy", 0.90, True, False, False, False),
     (2.0, "Happy", 0.92, False, False, False, False),
     (3.0, "Sad", 0.88, True, True, False, True),
@@ -12,21 +9,14 @@ test_frames = [
 ]
 
 
-for frame in test_frames:
+def test_orchestrator_produces_valid_results_for_every_frame():
+    orchestrator = TransitionOrchestrator()
 
-    timestamp, emotion, confidence, beat, downbeat, onset, energy_change = frame
-
-    result = orchestrator.process_frame(
-        timestamp=timestamp,
-        emotion=emotion,
-        confidence=confidence,
-        beat=beat,
-        downbeat=downbeat,
-        onset=onset,
-        energy_change=energy_change
-    )
-
-    print(result)
-
-    assert result["score"] >= 0.0
-    assert result["persistence"] >= 0.0
+    for timestamp, emotion, confidence, beat, downbeat, onset, energy_change in TEST_FRAMES:
+        result = orchestrator.process_frame(
+            timestamp=timestamp, emotion=emotion, confidence=confidence,
+            beat=beat, downbeat=downbeat, onset=onset, energy_change=energy_change,
+        )
+        assert result["score"] >= 0.0
+        assert result["persistence"] >= 0.0
+        assert isinstance(result["transition"], bool)
