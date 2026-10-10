@@ -25,6 +25,28 @@ Five synthetic audio inputs were evaluated.
 - Total checks: 10/10 PASS
 - DEAM TEST partition: not used
 
+### Real DEAM Audio Validation
+
+The early-exit implementation was additionally evaluated using
+10 real DEAM audio windows from 10 distinct songs.
+
+- TRAIN: 5 songs
+- VALIDATION: 5 songs
+- TEST: excluded
+- Context: 5-second causal windows
+- Sample rate: 24 kHz
+- Compared representations: Layer 4 and Layer 8
+- Total comparisons: 20
+- Passed comparisons: 20/20
+- Maximum observed absolute difference: 0.0
+
+All tested real-audio embeddings matched the full MERT
+implementation.
+
+This supports numerical equivalence for the evaluated
+samples, but does not establish equivalence across every
+possible audio input.
+
 ## Performance Results
 
 | Repetition | Full Mean (ms) | Early Mean (ms) |
