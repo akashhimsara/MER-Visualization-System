@@ -84,3 +84,70 @@ and preliminary latency improvement.
 
 Production-safe implementation and broader evaluation
 remain pending.
+
+## Safe Early-Exit Implementation
+
+A second early-exit implementation was developed to avoid
+temporarily replacing the encoder's forward method.
+
+The safe implementation directly reuses the pretrained
+feature extractor, feature projection, positional embeddings,
+normalization, and the first eight transformer layers.
+
+### Numerical Equivalence
+
+Synthetic audio:
+- Four signals tested
+- Layer 4 and Layer 8 compared
+- 8/8 comparisons passed
+- Maximum observed absolute difference: 0.0
+
+Real DEAM audio:
+- Five TRAIN songs
+- Five VALIDATION songs
+- Twenty layer comparisons
+- 20/20 comparisons passed
+- TEST partition excluded
+
+### Basic Concurrency Validation
+
+Two concurrent inference requests were executed using the
+same loaded model instance.
+
+- Four embedding comparisons
+- 4/4 comparisons passed
+- Maximum observed absolute difference: 0.0
+
+This is a limited concurrency correctness test, not proof
+of production-level thread safety.
+
+### Three-Way Latency Benchmark
+
+Device: NVIDIA RTX 3050 Laptop GPU
+Input: Synthetic 5-second waveform at 24 kHz
+Warm-up: 20 iterations per measurement block
+Measured iterations: 100 per block
+Repetitions: 3
+
+| Implementation | Mean (ms) | Mean P95 (ms) |
+|---|---:|---:|
+| Full MERT | 46.252 | 50.086 |
+| Original early exit | 37.172 | 38.922 |
+| Safe early exit | 38.538 | 39.812 |
+
+The safe early-exit implementation reduced mean latency
+by 16.68% relative to full MERT, corresponding to
+approximately 1.20x speedup.
+
+The P95 figures are averages of repetition-level P95
+values rather than pooled P95 estimates.
+
+The benchmark includes processor preparation, model
+inference, and embedding pooling. It excludes audio
+decoding, live capture, buffering, downstream regression,
+and visualization.
+
+### Research Decision
+
+The safe early-exit implementation is selected for
+subsequent integration
