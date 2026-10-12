@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from app.mock_mer import generate_mock_tier3_stream
+from app.mock_mer import generate_mock_tier3_stream, generate_mock_mer_stream
 
 app = FastAPI(title="Emotion-Adaptive Real-Time Music Visualization System")
 
@@ -24,3 +24,12 @@ async def websocket_mock_mer_tier3(websocket: WebSocket):
         await generate_mock_tier3_stream(websocket, session_id)
     except WebSocketDisconnect:
         print(f"Client disconnected from mock stream {session_id}")
+
+@app.websocket("/ws/mock/mer")
+async def websocket_mock_mer(websocket: WebSocket):
+    await websocket.accept()
+    session_id = "mock-session-001"
+    try:
+        await generate_mock_mer_stream(websocket, session_id)
+    except WebSocketDisconnect:
+        print(f"Client disconnected from multiplexed mock MER stream {session_id}")
