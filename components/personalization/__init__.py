@@ -14,6 +14,16 @@ from components.personalization.engine import (
     build_recommendation_event,
     generate_cold_start_recommendation,
 )
+from components.personalization.feedback import (
+    REWARD_DISLIKE,
+    REWARD_LIKE,
+    REWARD_PRESET_SELECT,
+    REWARD_PRESET_SKIP,
+    REWARD_VIEW_DURATION,
+    RewardResult,
+    calculate_reward,
+    normalize_rating,
+)
 
 __all__ = [
     "PRESET_CALM_NEGATIVE",
@@ -24,4 +34,12 @@ __all__ = [
     "select_cold_start_preset",
     "build_recommendation_event",
     "generate_cold_start_recommendation",
+    "REWARD_DISLIKE",
+    "REWARD_LIKE",
+    "REWARD_PRESET_SELECT",
+    "REWARD_PRESET_SKIP",
+    "REWARD_VIEW_DURATION",
+    "RewardResult",
+    "calculate_reward",
+    "normalize_rating",
 ]
