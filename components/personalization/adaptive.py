@@ -2,7 +2,8 @@
 In-Memory Adaptive Personalization Engine and Closed Learning Loop.
 
 Connects MER Tier 3 events, Context Vector generation, Cold-Start/LinUCB arm selection,
-Contract v1.1 Recommendation events, FeedbackEvent rewards, and LinUCB model updating.
+Contract v1.1 Recommendation events, FeedbackEvent rewards, LinUCB model updating,
+and UserPersonalizationState preferences tracking.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Set
@@ -18,6 +19,10 @@ from components.personalization.engine import build_recommendation_event
 from components.personalization.feedback import RewardResult, calculate_reward
 from components.personalization.linucb import DEFAULT_ALPHA, LinUCB, LinUCBSelection
 from components.personalization.presets import MOCK_ARM_PRESETS
+from components.personalization.user_state import (
+    DEFAULT_MAX_HISTORY_SIZE,
+    UserPersonalizationState,
+)
 
 
 class FeedbackProcessingResult(dict):
@@ -92,7 +97,8 @@ class FeedbackProcessingResult(dict):
 
 class AdaptivePersonalizationEngine:
     """
-    In-memory Adaptive Personalization Engine integrating contextual bandit learning.
+    In-memory Adaptive Personalization Engine integrating contextual bandit learning
+    and structured user history/preferences tracking.
 
     Pipeline:
     1. Cold-Start Phase:
@@ -102,10 +108,13 @@ class AdaptivePersonalizationEngine:
     2. Adaptive LinUCB Phase:
        Once successful_update_count >= min_updates_for_linucb, recommendations
        are driven by LinUCB arm selection (strategy="linucb", score=float).
-    3. Interaction Storage & Feedback Matching:
+    3. User History & Preference Tracking:
+       Maintains structured UserPersonalizationState recording per-preset metrics,
+       bounded histories, cumulative rewards, and preference summaries.
+    4. Interaction Storage & Feedback Matching:
        Stores pending recommendation context in memory. Matches feedback events to the
        most recent unprocessed interaction matching (session_id, preset_id).
-    4. Duplicate Protection:
+    5. Duplicate Protection:
        Tracks processed feedback_id values to prevent duplicate reward updates.
     """
 
@@ -116,6 +125,9 @@ class AdaptivePersonalizationEngine:
         alpha: float = DEFAULT_ALPHA,
         min_updates_for_linucb: int = 1,
         model: Optional[LinUCB] = None,
+        user_id: Optional[str] = None,
+        user_state: Optional[UserPersonalizationState] = None,
+        max_history_size: int = DEFAULT_MAX_HISTORY_SIZE,
     ):
         self.arms: List[str] = list(arms) if arms is not None else list(MOCK_ARM_PRESETS)
         self.context_dimension: int = int(context_dimension)
@@ -132,6 +144,16 @@ class AdaptivePersonalizationEngine:
         self.pending_interactions: List[Dict[str, Any]] = []
         self.processed_feedback_ids: Set[str] = set()
         self._internal_sequence: int = 0
+
+        # User Personalization State
+        if user_state is not None:
+            self.user_state: UserPersonalizationState = user_state
+        else:
+            self.user_state = UserPersonalizationState(
+                user_id=user_id or "user-default",
+                max_history_size=max_history_size,
+                presets=self.arms,
+            )
 
     @property
     def is_linucb_active(self) -> bool:
@@ -150,6 +172,7 @@ class AdaptivePersonalizationEngine:
         - If successful_update_count < min_updates_for_linucb: selects preset via cold-start.
         - If successful_update_count >= min_updates_for_linucb: selects preset via LinUCB.
         - Stores the interaction context in memory for later reward learning.
+        - Updates the user personalization state and bounded recommendation history.
         """
         if recommendation_sequence is not None:
             seq = int(recommendation_sequence)
@@ -200,6 +223,18 @@ class AdaptivePersonalizationEngine:
         }
         self.pending_interactions.append(interaction)
 
+        # 5. Record to user personalization state
+        if self.user_state is not None:
+            self.user_state.record_recommendation(
+                preset_id=preset_id,
+                recommendation_id=rec_event["recommendation_id"],
+                session_id=session_id,
+                audio_time_ms=audio_time_ms,
+                strategy=strategy,
+                score=score,
+                sequence=seq,
+            )
+
         return rec_event
 
     def process_feedback(
@@ -210,12 +245,13 @@ class AdaptivePersonalizationEngine:
         """
         Process a user feedback event and update the LinUCB model if applicable.
 
-        1. Rejects duplicate feedback IDs from updating the model.
+        1. Rejects duplicate feedback IDs from updating the model or user state.
         2. Calculates the scalar reward via calculate_reward().
         3. Matches the most recent unprocessed pending interaction for (session_id, preset_id).
-        4. If reward is None (e.g. view_duration): records auxiliary feedback without updating model.
+        4. If reward is None (e.g. view_duration): records auxiliary telemetry in user state
+           without updating the LinUCB model.
         5. If reward is numerical: updates the LinUCB model, marks interaction as processed,
-           and increments successful_update_count.
+           increments successful_update_count, and updates user state metrics.
         """
         feedback_id = feedback_event.get("feedback_id")
         session_id = feedback_event.get("session_id")
@@ -274,6 +310,17 @@ class AdaptivePersonalizationEngine:
 
         # 5. Auxiliary feedback handling (reward is None, e.g. view_duration)
         if reward_result.reward is None:
+            if self.user_state is not None:
+                self.user_state.record_feedback(
+                    feedback_type=reward_result.feedback_type,
+                    preset_id=preset_id,
+                    session_id=session_id,
+                    reward=None,
+                    feedback_id=feedback_id,
+                    recommendation_id=matching_interaction["recommendation_id"],
+                    raw_value=reward_result.raw_value,
+                    is_auxiliary=True,
+                )
             return FeedbackProcessingResult(
                 status="auxiliary",
                 applied=False,
@@ -297,6 +344,19 @@ class AdaptivePersonalizationEngine:
 
         # 8. Increment successful update counter
         self.successful_update_count += 1
+
+        # 9. Record to user personalization state
+        if self.user_state is not None:
+            self.user_state.record_feedback(
+                feedback_type=reward_result.feedback_type,
+                preset_id=preset_id,
+                session_id=session_id,
+                reward=reward_result.reward,
+                feedback_id=feedback_id,
+                recommendation_id=matching_interaction["recommendation_id"],
+                raw_value=reward_result.raw_value,
+                is_auxiliary=False,
+            )
 
         return FeedbackProcessingResult(
             status="applied",

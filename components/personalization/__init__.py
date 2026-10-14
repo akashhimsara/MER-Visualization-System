@@ -37,6 +37,11 @@ from components.personalization.linucb import (
     LinUCB,
     LinUCBSelection,
 )
+from components.personalization.user_state import (
+    DEFAULT_MAX_HISTORY_SIZE,
+    PresetStats,
+    UserPersonalizationState,
+)
 from components.personalization.adaptive import (
     AdaptivePersonalizationEngine,
     FeedbackProcessingResult,
@@ -74,6 +79,10 @@ __all__ = [
     "LinUCB",
     "LinUCBSelection",
     "DEFAULT_ALPHA",
+    # User Personalization State
+    "DEFAULT_MAX_HISTORY_SIZE",
+    "PresetStats",
+    "UserPersonalizationState",
     # Adaptive Learning Engine
     "AdaptivePersonalizationEngine",
     "FeedbackProcessingResult",
