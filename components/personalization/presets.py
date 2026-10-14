@@ -18,3 +18,5 @@ MOCK_COLD_START_PRESETS = {
     "tense_negative": PRESET_TENSE_NEGATIVE,
     "calm_negative": PRESET_CALM_NEGATIVE,
 }
+
+MOCK_ARM_PRESETS = list(MOCK_COLD_START_PRESETS.values())

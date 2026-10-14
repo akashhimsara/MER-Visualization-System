@@ -7,6 +7,7 @@ from components.personalization.presets import (
     PRESET_CALM_POSITIVE,
     PRESET_ENERGETIC_POSITIVE,
     PRESET_TENSE_NEGATIVE,
+    MOCK_ARM_PRESETS,
     MOCK_COLD_START_PRESETS,
 )
 from components.personalization.cold_start import select_cold_start_preset
@@ -31,12 +32,18 @@ from components.personalization.context import (
     ContextVector,
     build_context_vector,
 )
+from components.personalization.linucb import (
+    DEFAULT_ALPHA,
+    LinUCB,
+    LinUCBSelection,
+)
 
 __all__ = [
     "PRESET_CALM_NEGATIVE",
     "PRESET_CALM_POSITIVE",
     "PRESET_ENERGETIC_POSITIVE",
     "PRESET_TENSE_NEGATIVE",
+    "MOCK_ARM_PRESETS",
     "MOCK_COLD_START_PRESETS",
     "select_cold_start_preset",
     "build_recommendation_event",
@@ -54,4 +61,7 @@ __all__ = [
     "FEATURE_NAMES",
     "ContextVector",
     "build_context_vector",
+    "DEFAULT_ALPHA",
+    "LinUCB",
+    "LinUCBSelection",
 ]

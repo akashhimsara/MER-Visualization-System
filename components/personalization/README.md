@@ -31,7 +31,7 @@ This milestone proves the input/output boundary between **Music Emotion Recognit
 ---
 
 ## Milestone 2: FeedbackEvent -> Reward Processing Layer
-This layer converts incoming user feedback into structured scalar reward signals for the upcoming contextual bandit (LinUCB) learning loop.
+This layer converts incoming user feedback into structured scalar reward signals for the contextual bandit (LinUCB) learning loop.
 
 ### Processing Pipeline
 ```text
@@ -41,7 +41,7 @@ FeedbackEvent (Contract v1.1)
            ↓
    RewardResult (reward, feedback_type, is_explicit, is_auxiliary)
            ↓
-   Future: LinUCB Policy Model Update
+   LinUCB Model Update
 ```
 
 ### Deterministic Reward Policy
@@ -80,7 +80,7 @@ MER Tier 3 Event (Contract v1.1)
            ↓
    ContextVector: [valence, arousal, bias] (dimension = 3)
            ↓
-   Future: LinUCB Arm Scoring & Recommendation
+   LinUCB Arm Scoring & Recommendation
 ```
 
 ### Context Vector Specification
@@ -96,19 +96,44 @@ The initial context vector $\mathbf{x}_{t}$ has exact dimension $d = 3$:
 - **Dictionary Key:** `"values"` holds the raw list `[valence, arousal, bias]` for JSON/contract compatibility.
 - **Typed Attributes:** `.vector` and `.vector_values` provide typed access to the numerical list without shadowing Python's built-in `dict.values()` method.
 
-### Design Rationale: Minimal Initial Vector
-1. **Clean Baseline:**
-   Using continuous $[\text{valence}, \text{arousal}]$ directly aligns with Russell's Circumplex Model of affect, providing an interpretable 2D emotion coordinate space with an intercept term $\text{bias} = 1.0$.
-2. **Computational Efficiency:**
-   A low-dimensional context ($d=3$) makes ridge regression and covariance matrix updates ($A_a \leftarrow A_a + \mathbf{x}_t \mathbf{x}_t^\top$, $\mathcal{O}(d^2)$) and matrix inversion ($A_a^{-1}$, $\mathcal{O}(d^3)$) trivial to run in real time per emission.
-3. **Future Extensibility:**
-   Additional user/history features (e.g., Tier 1 acoustic RMS/spectral centroid, Tier 2 tempo, session interaction history, preset preference priors) may be introduced in later iterations once a stable, tested LinUCB baseline is established.
-
 ---
 
-## Future Roadmap: LinUCB Policy Integration
-With Milestones 1-3 established:
-1. **Context Representation:** `build_context_vector(tier3_event)` provides $\mathbf{x}_{t} \in \mathbb{R}^3$.
-2. **Arm Set:** Visual preset candidates from Member 2 registry $\mathcal{A}$.
-3. **Action Selection:** Select arm $a_t = \arg\max_{a \in \mathcal{A}} \left( \hat{\theta}_a^\top \mathbf{x}_t + \alpha \sqrt{\mathbf{x}_t^\top A_a^{-1} \mathbf{x}_t} \right)$.
-4. **Reward Feedback Update:** On incoming `feedback.event`, compute $r_t$ via `calculate_reward(feedback_event)` and update $A_{a_t} \leftarrow A_{a_t} + \mathbf{x}_t \mathbf{x}_t^\top$ and $b_{a_t} \leftarrow b_{a_t} + r_t \mathbf{x}_t$.
+## Milestone 4: Disjoint LinUCB Core
+This module implements the standard disjoint LinUCB contextual bandit algorithm (Li et al., 2010) for adaptive visual preset recommendation.
+
+### Processing Pipeline
+```text
+Numerical Context Vector x_t
+           ↓
+         LinUCB
+           ↓
+   Score Candidate Preset Arms
+           ↓
+      Select Best Preset
+```
+
+### Mathematical Formulation
+For each candidate arm $a \in \mathcal{A}$:
+- **Model State:**
+  - $A_a \in \mathbb{R}^{d \times d}$, initialized to identity matrix $I_d$.
+  - $b_a \in \mathbb{R}^d$, initialized to zero vector $\mathbf{0}_d$.
+- **Ridge Regression Coefficient:**
+  $$\hat{\theta}_a = A_a^{-1} b_a$$
+  Computed via linear system solving (`np.linalg.solve(A_a, b_a)`).
+- **Upper Confidence Bound Scoring:**
+  $$\text{exploitation} = \hat{\theta}_a^\top \mathbf{x}_t$$
+  $$\text{exploration} = \alpha \sqrt{\mathbf{x}_t^\top A_a^{-1} \mathbf{x}_t}$$
+  $$\text{score}_a = \text{exploitation} + \text{exploration}$$
+- **Action Selection:**
+  $$a_t = \arg\max_{a \in \mathcal{A}} \text{score}_a$$
+- **Deterministic Tie-Breaking:**
+  At initialization (or when arm scores are strictly equal), the first arm among equal maximum scores in the supplied arm order is chosen without randomness.
+- **Model Update:**
+  Upon receiving scalar reward $r_t$ for arm $a_t$:
+  $$A_{a_t} \leftarrow A_{a_t} + \mathbf{x}_t \mathbf{x}_t^\top$$
+  $$b_{a_t} \leftarrow b_{a_t} + r_t \mathbf{x}_t$$
+
+### Configuration & Extensibility
+- **Arms:** Injected from the preset registry (`components/personalization/presets.py`).
+- **Exploration Parameter:** $\alpha$ defaults to `1.0` and is fully configurable.
+- **Status:** The `update(...)` operation is part of the standalone mathematical core; automatic feedback integration into the live pipeline will be connected in a subsequent milestone.
