@@ -109,3 +109,29 @@ Processed `feedback_id` values are retained in memory. If the same `feedback_id`
 
 ### Auxiliary Feedback Handling
 Events such as `view_duration` return `reward = None`. They are recorded as auxiliary telemetry (`status="auxiliary"`, `applied=False`) and do **not** trigger LinUCB updates or transition the engine out of cold-start.
+
+---
+
+## Milestone 6: User History & Preferences Layer
+
+The `UserPersonalizationState` provides structured tracking of user-level history, interaction counts, and learned preference summaries:
+
+### Pipeline Integration
+```text
+Adaptive Recommendation
+       ↓
+Feedback
+       ↓
+Reward
+       ↓
+User History / Preference Summary
+       ↓
+LinUCB Learning
+```
+
+### Architectural Principles
+- **State Decoupling:** `UserPersonalizationState` tracks high-level interaction history and preferences. LinUCB covariance matrices ($A_a, b_a$) remain strictly owned by `LinUCB` and `AdaptivePersonalizationEngine`.
+- **Caller-Supplied Identity:** `user_id` is passed by callers (default `"user-default"`). Real user identity will arrive with the future authentication/JWT milestone.
+- **Bounded Recent History:** `recent_recommendations` and `recent_feedback` records are bounded (default size `20`) to prevent unbounded memory growth.
+- **Deterministic Preference Summaries:** Preference resolution methods (`get_most_positively_rewarded_preset`, `get_most_frequently_liked_preset`, etc.) break ties deterministically by preset identifier.
+- **Persistence Readiness:** `state.to_dict()` provides a clean, fully JSON-serializable representation for future PostgreSQL storage.
