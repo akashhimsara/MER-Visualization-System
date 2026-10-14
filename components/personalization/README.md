@@ -1,119 +1,58 @@
 # Adaptive Personalization & User Analytics (Member 4)
 
-## Overview
-This component is responsible for analyzing user preferences and selecting optimal visual presets based on real-time emotional analysis of music, adapting continuously to implicit and explicit user feedback.
+## Architecture Overview
+
+The Adaptive Personalization component dynamically recommends visual presets based on real-time emotion recognition (MER Tier 3 continuous valence and arousal) and learns individual user preferences over time via contextual bandit algorithms (LinUCB).
+
+The component operates in two distinct phases:
+1. **Cold-Start Policy:** Deterministic quadrant-based mapping active during initial user sessions when no feedback has been recorded.
+2. **Adaptive Personalization (LinUCB):** Contextual multi-armed bandit algorithm that balances exploitation (recommending presets with high predicted reward) and exploration (sampling presets with high uncertainty) once reward feedback is observed.
 
 ---
 
 ## Milestone 1: Cold-Start Personalization Core
-This milestone proves the input/output boundary between **Music Emotion Recognition (MER)** and **Personalization** before integrating reinforcement learning.
 
-### Input
-- **MER Tier 3 Event** (`mer.tier3`): Continuous `valence` and `arousal` values within $[-1.0, 1.0]$, `session_id`, `audio_time_ms`, and `sequence`.
+### Cold-Start Quadrant Mapping
 
-### Current Algorithm
-- **Deterministic Cold-Start Quadrant Mapping**:
-  - Valence $\ge 0$ and Arousal $\ge 0 \rightarrow$ `mock-energetic-positive`
-  - Valence $\ge 0$ and Arousal $< 0 \rightarrow$ `mock-calm-positive`
-  - Valence $< 0$ and Arousal $\ge 0 \rightarrow$ `mock-tense-negative`
-  - Valence $< 0$ and Arousal $< 0 \rightarrow$ `mock-calm-negative`
+Continuous valence and arousal are partitioned across the origin:
 
-> **Note on Preset IDs:**
-> The mock preset IDs (`mock-energetic-positive`, etc.) are temporary placeholders defined centrally in `components/personalization/presets.py`. They will be replaced by the official visual preset registry managed by the Emotion-Aware Visualization component (Member 2).
-
-### Output
-- **Personalization Recommendation Event** (`personalization.recommendation`): Conforms strictly to Contract v1.1 (`contracts/schemas/recommendation.schema.json`).
-  - `strategy`: `"cold_start"`
-  - `score`: `null` (not fabricated during mock/cold-start)
-  - `sequence`: Independent recommendation sequence counter
-  - `session_id` and `audio_time_ms`: Preserved from the incoming MER Tier 3 event
+| Quadrant | Valence | Arousal | Target Mood | Temporary Mock Preset ID |
+| :--- | :--- | :--- | :--- | :--- |
+| **Q1** | $\ge 0.0$ | $\ge 0.0$ | Energetic Positive | `mock-energetic-positive` |
+| **Q2** | $\ge 0.0$ | $< 0.0$ | Calm Positive | `mock-calm-positive` |
+| **Q3** | $< 0.0$ | $\ge 0.0$ | Tense Negative | `mock-tense-negative` |
+| **Q4** | $< 0.0$ | $< 0.0$ | Calm Negative | `mock-calm-negative` |
 
 ---
 
-## Milestone 2: FeedbackEvent -> Reward Processing Layer
-This layer converts incoming user feedback into structured scalar reward signals for the contextual bandit (LinUCB) learning loop.
+## Milestone 2: Feedback & Reward Processing Layer
 
-### Processing Pipeline
-```text
-FeedbackEvent (Contract v1.1)
-           ↓
-   Reward Processor (calculate_reward)
-           ↓
-   RewardResult (reward, feedback_type, is_explicit, is_auxiliary)
-           ↓
-   LinUCB Model Update
-```
+### Reward Policy
 
-### Deterministic Reward Policy
-The reward policy maps feedback event types to standardized scalar rewards within $[-1.0, +1.0]$:
+Converts Contract v1.1 `feedback.event` payloads into scalar learning rewards:
 
-| Feedback Type | Mapping / Formula | Reward | Signal Category |
-| :--- | :--- | :--- | :--- |
-| `like` | Direct positive evaluation | `+1.0` | Explicit |
-| `dislike` | Direct negative evaluation | `-1.0` | Explicit |
-| `rating` | Normalized: `(rating - 3) / 2` | `[-1.0, +1.0]` | Explicit |
-| `rating 1` | `(1 - 3) / 2` | `-1.0` | Explicit |
-| `rating 2` | `(2 - 3) / 2` | `-0.5` | Explicit |
-| `rating 3` | `(3 - 3) / 2` | `0.0` | Explicit |
-| `rating 4` | `(4 - 3) / 2` | `+0.5` | Explicit |
-| `rating 5` | `(5 - 3) / 2` | `+1.0` | Explicit |
-| `preset_select` | User intentionally selects a preset | `+0.75` | Implicit / Behavioral |
-| `preset_skip` | User skips past a preset | `-0.75` | Implicit / Behavioral |
-| `view_duration` | Dwell time (`duration_ms`) | `None` | Auxiliary / Implicit |
-
-### Policy Notes
-1. **Hyperparameters, Not Ground Truth:**
-   The numeric reward values (`+1.0`, `-1.0`, `+0.75`, `-0.75`, etc.) are initial policy hyperparameters, **not** objective emotional scores. They are centralized in `components/personalization/feedback.py` and can be tuned or calibrated experimentally.
-2. **Deferred View Duration Reward:**
-   Raw `duration_ms` is intentionally deferred from producing a direct scalar reward (`reward = None`). Meaningful duration rewards require session-relative context (e.g., track length, average dwell time, relative thresholding) to avoid rewarding inactive or idle tabs. `view_duration` is marked as `is_auxiliary = True` so downstream models can store duration context without corrupting immediate bandit updates.
+| Feedback Type | Category | Value / Normalization | Reward Range | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `like` | Explicit | Fixed $+1.0$ | $+1.0$ | Direct positive preference. |
+| `dislike` | Explicit | Fixed $-1.0$ | $-1.0$ | Direct negative preference. |
+| `rating` | Explicit | $(rating - 3) / 2$ | $[-1.0, +1.0]$ | 1 $\rightarrow -1.0$, 3 $\rightarrow 0.0$, 5 $\rightarrow +1.0$. |
+| `preset_select` | Implicit | Fixed $+0.75$ | $+0.75$ | User manually selects recommended preset. |
+| `preset_skip` | Implicit | Fixed $-0.75$ | $-0.75$ | User explicitly skips recommended preset. |
+| `view_duration` | Auxiliary | `None` (deferred) | `None` | Auxiliary engagement telemetry; does not directly update LinUCB. |
 
 ---
 
 ## Milestone 3: Numerical Context Vector Builder
-This module constructs a standard numerical context vector from continuous emotion features to serve as the context representation for LinUCB arm selection.
 
-### Processing Pipeline
-```text
-MER Tier 3 Event (Contract v1.1)
-           ↓
-   Context Vector Builder (build_context_vector)
-           ↓
-   ContextVector: [valence, arousal, bias] (dimension = 3)
-           ↓
-   LinUCB Arm Scoring & Recommendation
-```
+Extracts continuous valence and arousal from MER Tier 3 events and constructs a standardized fixed-dimension feature vector:
 
-### Context Vector Specification
-The initial context vector $\mathbf{x}_{t}$ has exact dimension $d = 3$:
-
-| Index | Feature Name | Source | Range / Value |
-| :---: | :--- | :--- | :--- |
-| `0` | `valence` | `tier3_event["emotion"]["valence"]` | $[-1.0, +1.0]$ |
-| `1` | `arousal` | `tier3_event["emotion"]["arousal"]` | $[-1.0, +1.0]$ |
-| `2` | `bias` | Constant intercept term | `1.0` |
-
-### API & Shadowing Safeguard
-- **Dictionary Key:** `"values"` holds the raw list `[valence, arousal, bias]` for JSON/contract compatibility.
-- **Typed Attributes:** `.vector` and `.vector_values` provide typed access to the numerical list without shadowing Python's built-in `dict.values()` method.
+$$\mathbf{x} = [\text{valence}, \text{arousal}, \text{bias}]^\top \in \mathbb{R}^3$$
 
 ---
 
 ## Milestone 4: Disjoint LinUCB Core
-This module implements the standard disjoint LinUCB contextual bandit algorithm (Li et al., 2010) for adaptive visual preset recommendation.
 
-### Processing Pipeline
-```text
-Numerical Context Vector x_t
-           ↓
-         LinUCB
-           ↓
-   Score Candidate Preset Arms
-           ↓
-      Select Best Preset
-```
-
-### Mathematical Formulation
-For each candidate arm $a \in \mathcal{A}$:
+For each candidate preset arm $a \in \mathcal{A}$:
 - **Model State:**
   - $A_a \in \mathbb{R}^{d \times d}$, initialized to identity matrix $I_d$.
   - $b_a \in \mathbb{R}^d$, initialized to zero vector $\mathbf{0}_d$.
@@ -124,16 +63,49 @@ For each candidate arm $a \in \mathcal{A}$:
   $$\text{exploitation} = \hat{\theta}_a^\top \mathbf{x}_t$$
   $$\text{exploration} = \alpha \sqrt{\mathbf{x}_t^\top A_a^{-1} \mathbf{x}_t}$$
   $$\text{score}_a = \text{exploitation} + \text{exploration}$$
-- **Action Selection:**
-  $$a_t = \arg\max_{a \in \mathcal{A}} \text{score}_a$$
 - **Deterministic Tie-Breaking:**
-  At initialization (or when arm scores are strictly equal), the first arm among equal maximum scores in the supplied arm order is chosen without randomness.
+  First arm among equal maximum scores wins strictly (`score > best_score`).
 - **Model Update:**
-  Upon receiving scalar reward $r_t$ for arm $a_t$:
   $$A_{a_t} \leftarrow A_{a_t} + \mathbf{x}_t \mathbf{x}_t^\top$$
   $$b_{a_t} \leftarrow b_{a_t} + r_t \mathbf{x}_t$$
 
-### Configuration & Extensibility
-- **Arms:** Injected from the preset registry (`components/personalization/presets.py`).
-- **Exploration Parameter:** $\alpha$ defaults to `1.0` and is fully configurable.
-- **Status:** The `update(...)` operation is part of the standalone mathematical core; automatic feedback integration into the live pipeline will be connected in a subsequent milestone.
+---
+
+## Milestone 5: Closed In-Memory Learning Loop
+
+The `AdaptivePersonalizationEngine` connects all personalization sub-components into an end-to-end adaptive loop:
+
+### Pipeline Flow
+```text
+MER Tier 3 Event
+       ↓
+Context Vector Builder: [valence, arousal, bias]
+       ↓
+Cold-Start / LinUCB Selection
+       ↓
+Contract v1.1 Recommendation Event
+       ↓
+User Interaction & FeedbackEvent
+       ↓
+Reward Processor: calculate_reward(...)
+       ↓
+LinUCB Model Update: LinUCB.update(...)
+       ↓
+Future Recommendations Adapt
+```
+
+### Transition Rule
+- **`successful_update_count == 0`**:
+  Uses deterministic quadrant cold-start policy (`strategy="cold_start"`, `score=null`).
+- **`successful_update_count >= 1`**:
+  Uses LinUCB arm selection (`strategy="linucb"`, `score=float`).
+
+### In-Memory Interaction Matching Policy
+Because Contract v1.1 `feedback.event` contains `preset_id` and `session_id` but does not include `recommendation_id`, feedback events match the **most recent unprocessed pending interaction** with the same `(session_id, preset_id)`.
+> **Milestone Limitation:** This matching policy is an in-memory design for the current milestone. It will be replaced with persistent interaction IDs or contract evolution when PostgreSQL persistence is added.
+
+### Duplicate Feedback Protection
+Processed `feedback_id` values are retained in memory. If the same `feedback_id` is submitted multiple times, it is safely ignored (`status="duplicate"`, `applied=False`), preventing duplicate updates from corrupting bandit state.
+
+### Auxiliary Feedback Handling
+Events such as `view_duration` return `reward = None`. They are recorded as auxiliary telemetry (`status="auxiliary"`, `applied=False`) and do **not** trigger LinUCB updates or transition the engine out of cold-start.

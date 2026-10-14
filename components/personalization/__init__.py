@@ -37,31 +37,44 @@ from components.personalization.linucb import (
     LinUCB,
     LinUCBSelection,
 )
+from components.personalization.adaptive import (
+    AdaptivePersonalizationEngine,
+    FeedbackProcessingResult,
+)
 
 __all__ = [
-    "PRESET_CALM_NEGATIVE",
-    "PRESET_CALM_POSITIVE",
+    # Presets
     "PRESET_ENERGETIC_POSITIVE",
+    "PRESET_CALM_POSITIVE",
     "PRESET_TENSE_NEGATIVE",
+    "PRESET_CALM_NEGATIVE",
     "MOCK_ARM_PRESETS",
     "MOCK_COLD_START_PRESETS",
+    # Cold-Start
     "select_cold_start_preset",
+    # Recommendation Builders
     "build_recommendation_event",
     "generate_cold_start_recommendation",
-    "REWARD_DISLIKE",
+    # Feedback & Rewards
+    "calculate_reward",
+    "normalize_rating",
+    "RewardResult",
     "REWARD_LIKE",
+    "REWARD_DISLIKE",
     "REWARD_PRESET_SELECT",
     "REWARD_PRESET_SKIP",
     "REWARD_VIEW_DURATION",
-    "RewardResult",
-    "calculate_reward",
-    "normalize_rating",
-    "CONTEXT_DIMENSION",
-    "DEFAULT_BIAS_TERM",
-    "FEATURE_NAMES",
+    # Context Vector
     "ContextVector",
     "build_context_vector",
-    "DEFAULT_ALPHA",
+    "DEFAULT_BIAS_TERM",
+    "FEATURE_NAMES",
+    "CONTEXT_DIMENSION",
+    # LinUCB Core
     "LinUCB",
     "LinUCBSelection",
+    "DEFAULT_ALPHA",
+    # Adaptive Learning Engine
+    "AdaptivePersonalizationEngine",
+    "FeedbackProcessingResult",
 ]
