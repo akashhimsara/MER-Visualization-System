@@ -1,6 +1,15 @@
 import asyncio
 import math
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Ensure repository root is in sys.path to import shared components
+ROOT_DIR = Path(__file__).resolve().parents[3]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from components.personalization import generate_cold_start_recommendation
 
 
 def create_mock_tier1_event(session_id: str, sequence: int, audio_time_ms: int) -> Dict[str, Any]:
@@ -79,10 +88,12 @@ def create_mock_tier3_event(session_id: str, sequence: int, audio_time_ms: int) 
 
 class MockMERScheduler:
     """
-    Manages deterministic cadence and per-tier sequence counters for multi-tier MER events.
+    Manages deterministic cadence and per-tier sequence counters for multi-tier MER events
+    and cold-start personalization recommendations.
     Cadence:
     - Tier 1: every 100 ms (every tick)
     - Tier 3: every 1000 ms (every 10 ticks)
+    - Personalization Recommendation: triggered by every Tier 3 emission (every 1000 ms)
     - Tier 2: every 3000 ms (every 30 ticks)
     """
 
@@ -95,6 +106,7 @@ class MockMERScheduler:
         self.tier1_seq = 0
         self.tier2_seq = 0
         self.tier3_seq = 0
+        self.recommendation_seq = 0
 
     def tick(self) -> List[Dict[str, Any]]:
         events = []
@@ -104,10 +116,19 @@ class MockMERScheduler:
         events.append(create_mock_tier1_event(self.session_id, self.tier1_seq, now_ms))
         self.tier1_seq += 1
         
-        # Tier 3 (~1000 ms)
+        # Tier 3 (~1000 ms) + Cold-start Personalization Recommendation
         if self.step_index % 10 == 0:
-            events.append(create_mock_tier3_event(self.session_id, self.tier3_seq, now_ms))
+            tier3_event = create_mock_tier3_event(self.session_id, self.tier3_seq, now_ms)
+            events.append(tier3_event)
             self.tier3_seq += 1
+            
+            # Cold-start Personalization Recommendation v1.1
+            rec_event = generate_cold_start_recommendation(
+                tier3_event=tier3_event,
+                recommendation_sequence=self.recommendation_seq,
+            )
+            events.append(rec_event)
+            self.recommendation_seq += 1
             
         # Tier 2 (~3000 ms)
         if self.step_index % 30 == 0:
@@ -137,7 +158,7 @@ async def generate_mock_tier3_stream(websocket, session_id: str):
 
 async def generate_mock_mer_stream(websocket, session_id: str, interval_s: float = 0.1):
     """
-    Multiplexed generator for Tier 1, Tier 2, and Tier 3 over a single WebSocket.
+    Multiplexed generator for Tier 1, Tier 2, Tier 3, and Personalization Recommendation over a single WebSocket.
     """
     scheduler = MockMERScheduler(session_id=session_id)
     try:

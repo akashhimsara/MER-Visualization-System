@@ -45,4 +45,20 @@ export interface MERTier3Event {
   emotion: MERTier3Emotion;
 }
 
-export type MEREvent = MERTier1Event | MERTier2Event | MERTier3Event;
+export interface PersonalizationRecommendationEvent {
+  schema_version: "1.1";
+  event_type: "personalization.recommendation";
+  session_id: string;
+  sequence: number;
+  audio_time_ms: number;
+  recommendation_id: string;
+  recommended_preset_id: string;
+  score: number | null;
+  strategy: "default" | "cold_start" | "linucb";
+}
+
+export type MEREvent =
+  | MERTier1Event
+  | MERTier2Event
+  | MERTier3Event
+  | PersonalizationRecommendationEvent;
