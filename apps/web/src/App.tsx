@@ -1,5 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import type { MERTier1Event, MERTier2Event, MERTier3Event } from './types/mer'
+import type {
+  MERTier1Event,
+  MERTier2Event,
+  MERTier3Event,
+  PersonalizationRecommendationEvent,
+} from './types/mer'
 
 export function App() {
   const [status, setStatus] = useState<'Connecting...' | 'Connected' | 'Disconnected' | 'Error'>('Connecting...')
@@ -8,6 +13,7 @@ export function App() {
   const [tier1Event, setTier1Event] = useState<MERTier1Event | null>(null)
   const [tier2Event, setTier2Event] = useState<MERTier2Event | null>(null)
   const [tier3Event, setTier3Event] = useState<MERTier3Event | null>(null)
+  const [recommendationEvent, setRecommendationEvent] = useState<PersonalizationRecommendationEvent | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -51,6 +57,9 @@ export function App() {
             case 'mer.tier3':
               setTier3Event(data as MERTier3Event)
               break
+            case 'personalization.recommendation':
+              setRecommendationEvent(data as PersonalizationRecommendationEvent)
+              break
             default:
               console.warn('Ignored unknown event_type:', data.event_type)
               break
@@ -85,7 +94,12 @@ export function App() {
   }, [])
 
   // Shared session ID derived from whichever tier emitted latest
-  const sharedSessionId = tier1Event?.session_id || tier2Event?.session_id || tier3Event?.session_id || 'Waiting for session...'
+  const sharedSessionId =
+    tier1Event?.session_id ||
+    tier2Event?.session_id ||
+    tier3Event?.session_id ||
+    recommendationEvent?.session_id ||
+    'Waiting for session...'
 
   const getStatusColor = () => {
     switch (status) {
@@ -103,7 +117,7 @@ export function App() {
 
   return (
     <div style={{
-      maxWidth: '1200px',
+      maxWidth: '1300px',
       margin: '0 auto',
       padding: '2rem 1.5rem',
       fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -115,7 +129,7 @@ export function App() {
       {/* Header */}
       <header style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.875rem', fontWeight: 700, margin: '0 0 0.5rem 0', color: '#f8fafc' }}>
-          Multi-Tier MER Multiplexed Stream
+          Multi-Tier MER & Personalization Pipeline
         </h1>
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
           Real-time debug dashboard monitoring multiplexed WebSocket stream at <code>/ws/mock/mer</code>
@@ -176,10 +190,10 @@ export function App() {
         </div>
       )}
 
-      {/* Grid of 3 Tier Sections */}
+      {/* Grid of 4 Debug Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
         gap: '1.5rem'
       }}>
         {/* Tier 1 Section */}
@@ -363,6 +377,72 @@ export function App() {
             </div>
           ) : (
             <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 'auto 0' }}>Waiting for Tier 3 events...</p>
+          )}
+        </section>
+
+        {/* Personalization Recommendation Section */}
+        <section style={{
+          backgroundColor: '#1e293b',
+          borderRadius: '0.75rem',
+          border: '1px solid #334155',
+          padding: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <div style={{ borderBottom: '1px solid #334155', paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, color: '#10b981' }}>
+                Personalization
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', backgroundColor: '#0f172a', padding: '0.2rem 0.5rem', borderRadius: '0.25rem' }}>
+                ~1000 ms
+              </span>
+            </div>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>
+              Cold-Start Recommendation
+            </p>
+          </div>
+
+          {recommendationEvent ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Sequence:</span>
+                <span style={{ fontWeight: 600 }}>{recommendationEvent.sequence}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Audio Time:</span>
+                <span>{recommendationEvent.audio_time_ms} ms</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Recommendation ID:</span>
+                <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#38bdf8' }}>
+                  {recommendationEvent.recommendation_id}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Recommended Preset:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#10b981' }}>
+                  {recommendationEvent.recommended_preset_id}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Strategy:</span>
+                <span style={{ fontFamily: 'monospace', color: '#f59e0b', fontWeight: 600 }}>
+                  {recommendationEvent.strategy}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Score:</span>
+                <span style={{ fontFamily: 'monospace' }}>
+                  {recommendationEvent.score !== null ? recommendationEvent.score : 'null'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 'auto 0' }}>
+              Waiting for recommendation events...
+            </p>
           )}
         </section>
       </div>
