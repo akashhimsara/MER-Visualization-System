@@ -24,6 +24,13 @@ from components.personalization.feedback import (
     calculate_reward,
     normalize_rating,
 )
+from components.personalization.context import (
+    CONTEXT_DIMENSION,
+    DEFAULT_BIAS_TERM,
+    FEATURE_NAMES,
+    ContextVector,
+    build_context_vector,
+)
 
 __all__ = [
     "PRESET_CALM_NEGATIVE",
@@ -42,4 +49,9 @@ __all__ = [
     "RewardResult",
     "calculate_reward",
     "normalize_rating",
+    "CONTEXT_DIMENSION",
+    "DEFAULT_BIAS_TERM",
+    "FEATURE_NAMES",
+    "ContextVector",
+    "build_context_vector",
 ]
