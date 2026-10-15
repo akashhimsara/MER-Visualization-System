@@ -46,6 +46,27 @@ from components.personalization.adaptive import (
     AdaptivePersonalizationEngine,
     FeedbackProcessingResult,
 )
+from components.personalization.persistence import (
+    Base,
+    PersonalizationInteractionModel,
+    PersonalizationLinUCBStateModel,
+    PersonalizationPresetStatsModel,
+    PersonalizationProcessedFeedbackModel,
+    PersonalizationRepository,
+    PersonalizationUserStateModel,
+    create_db_engine,
+    deserialize_linucb_arm,
+    deserialize_linucb_model,
+    deserialize_user_state,
+    get_database_url,
+    get_session_factory,
+    persist_adaptive_engine,
+    restore_adaptive_engine,
+    sanitize_for_json,
+    serialize_linucb_arm,
+    serialize_linucb_model,
+    serialize_user_state,
+)
 
 __all__ = [
     # Presets
@@ -86,4 +107,24 @@ __all__ = [
     # Adaptive Learning Engine
     "AdaptivePersonalizationEngine",
     "FeedbackProcessingResult",
+    # Persistence Layer
+    "Base",
+    "PersonalizationUserStateModel",
+    "PersonalizationPresetStatsModel",
+    "PersonalizationLinUCBStateModel",
+    "PersonalizationInteractionModel",
+    "PersonalizationProcessedFeedbackModel",
+    "PersonalizationRepository",
+    "restore_adaptive_engine",
+    "persist_adaptive_engine",
+    "create_db_engine",
+    "get_database_url",
+    "get_session_factory",
+    "serialize_user_state",
+    "deserialize_user_state",
+    "serialize_linucb_model",
+    "deserialize_linucb_model",
+    "serialize_linucb_arm",
+    "deserialize_linucb_arm",
+    "sanitize_for_json",
 ]
