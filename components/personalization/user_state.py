@@ -162,10 +162,28 @@ class PresetStats(dict):
             "preset_select_count": self.preset_select_count,
             "preset_skip_count": self.preset_skip_count,
             "cumulative_reward": round(self.cumulative_reward, 4),
+            "numerical_reward_count": self.numerical_reward_count,
             "average_reward": self.average_reward,
             "view_duration_count": self.view_duration_count,
             "total_duration_ms": self.total_duration_ms,
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PresetStats":
+        stats = cls(data["preset_id"])
+        stats.recommendation_count = int(data.get("recommendation_count", 0))
+        stats.feedback_count = int(data.get("feedback_count", 0))
+        stats.like_count = int(data.get("like_count", 0))
+        stats.dislike_count = int(data.get("dislike_count", 0))
+        stats.rating_count = int(data.get("rating_count", 0))
+        stats.rating_sum = float(data.get("rating_sum", 0.0))
+        stats.preset_select_count = int(data.get("preset_select_count", 0))
+        stats.preset_skip_count = int(data.get("preset_skip_count", 0))
+        stats.cumulative_reward = float(data.get("cumulative_reward", 0.0))
+        stats.numerical_reward_count = int(data.get("numerical_reward_count", 0))
+        stats.view_duration_count = int(data.get("view_duration_count", 0))
+        stats.total_duration_ms = int(data.get("total_duration_ms", 0))
+        return stats
 
 
 class UserPersonalizationState:
@@ -372,6 +390,7 @@ class UserPersonalizationState:
             "last_recommended_preset": self.last_recommended_preset,
             "last_feedback_type": self.last_feedback_type,
             "cumulative_reward": round(self.cumulative_reward, 4),
+            "numerical_reward_count": self.numerical_reward_count,
             "average_reward": self.average_reward,
             "preference_summary": self.get_preference_summary(),
             "preset_stats": {
@@ -380,3 +399,26 @@ class UserPersonalizationState:
             "recent_recommendations": list(self.recent_recommendations),
             "recent_feedback": list(self.recent_feedback),
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "UserPersonalizationState":
+        """Reconstruct UserPersonalizationState from a dictionary."""
+        user_id = data["user_id"]
+        max_history_size = int(data.get("max_history_size", DEFAULT_MAX_HISTORY_SIZE))
+        state = cls(user_id=user_id, max_history_size=max_history_size)
+
+        state.recommendation_count = int(data.get("recommendation_count", 0))
+        state.feedback_count = int(data.get("feedback_count", 0))
+        state.successful_learning_updates = int(data.get("successful_learning_updates", 0))
+        state.last_recommended_preset = data.get("last_recommended_preset")
+        state.last_feedback_type = data.get("last_feedback_type")
+        state.cumulative_reward = float(data.get("cumulative_reward", 0.0))
+        state.numerical_reward_count = int(data.get("numerical_reward_count", 0))
+
+        preset_stats_data = data.get("preset_stats", {})
+        for pid, pdata in preset_stats_data.items():
+            state.preset_stats[pid] = PresetStats.from_dict(pdata)
+
+        state.recent_recommendations = list(data.get("recent_recommendations", []))
+        state.recent_feedback = list(data.get("recent_feedback", []))
+        return state

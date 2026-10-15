@@ -100,16 +100,6 @@ Future Recommendations Adapt
 - **`successful_update_count >= 1`**:
   Uses LinUCB arm selection (`strategy="linucb"`, `score=float`).
 
-### In-Memory Interaction Matching Policy
-Because Contract v1.1 `feedback.event` contains `preset_id` and `session_id` but does not include `recommendation_id`, feedback events match the **most recent unprocessed pending interaction** with the same `(session_id, preset_id)`.
-> **Milestone Limitation:** This matching policy is an in-memory design for the current milestone. It will be replaced with persistent interaction IDs or contract evolution when PostgreSQL persistence is added.
-
-### Duplicate Feedback Protection
-Processed `feedback_id` values are retained in memory. If the same `feedback_id` is submitted multiple times, it is safely ignored (`status="duplicate"`, `applied=False`), preventing duplicate updates from corrupting bandit state.
-
-### Auxiliary Feedback Handling
-Events such as `view_duration` return `reward = None`. They are recorded as auxiliary telemetry (`status="auxiliary"`, `applied=False`) and do **not** trigger LinUCB updates or transition the engine out of cold-start.
-
 ---
 
 ## Milestone 6: User History & Preferences Layer
@@ -129,9 +119,77 @@ User History / Preference Summary
 LinUCB Learning
 ```
 
-### Architectural Principles
-- **State Decoupling:** `UserPersonalizationState` tracks high-level interaction history and preferences. LinUCB covariance matrices ($A_a, b_a$) remain strictly owned by `LinUCB` and `AdaptivePersonalizationEngine`.
-- **Caller-Supplied Identity:** `user_id` is passed by callers (default `"user-default"`). Real user identity will arrive with the future authentication/JWT milestone.
+- **Separation of Concerns:** `UserPersonalizationState` tracks high-level interaction history and preferences. LinUCB covariance matrices ($A_a, b_a$) remain strictly owned by `LinUCB` inside `AdaptivePersonalizationEngine`.
 - **Bounded Recent History:** `recent_recommendations` and `recent_feedback` records are bounded (default size `20`) to prevent unbounded memory growth.
-- **Deterministic Preference Summaries:** Preference resolution methods (`get_most_positively_rewarded_preset`, `get_most_frequently_liked_preset`, etc.) break ties deterministically by preset identifier.
-- **Persistence Readiness:** `state.to_dict()` provides a clean, fully JSON-serializable representation for future PostgreSQL storage.
+- **Deterministic Summaries:** Preference resolution methods (`get_most_positively_rewarded_preset`, etc.) break ties deterministically by preset identifier.
+
+---
+
+## Milestone 7: PostgreSQL Persistence Layer
+
+The persistence layer allows personalization history, user preferences, and LinUCB bandit parameters to survive server restarts.
+
+### Layered Architecture
+```text
+Personalization Engine (AdaptivePersonalizationEngine / LinUCB)
+       ↓
+Persistence Repository (PersonalizationRepository)
+       ↓
+SQLAlchemy ORM (Models & Portable JSON Serializers)
+       ↓
+PostgreSQL Database
+```
+
+### Persisted Database Entities
+1. **`personalization_user_state`**:
+   Tracks total recommendations, feedback count, successful learning updates, cumulative reward, numerical reward count, last recommended preset, and last feedback type.
+2. **`personalization_preset_stats`**:
+   Tracks per-preset interaction counters (`like`, `dislike`, `rating`, `select`, `skip`, `view_duration`), rating sum, and cumulative reward. Composite unique constraint on `(user_id, preset_id)`.
+3. **`personalization_linucb_state`**:
+   Stores LinUCB design covariance matrices ($A_a$) and bias vectors ($b_a$) per arm as portable JSON arrays with strict shape validation (`(d, d)` and `(d,)`). Composite unique constraint on `(user_id, arm_id)`.
+4. **`personalization_interactions`**:
+   Persists emitted recommendations and context vectors (`[valence, arousal, bias]`), indexed by unique `recommendation_id`.
+5. **`personalization_processed_feedback`**:
+   Idempotency log tracking processed `feedback_id` values to ensure duplicate submissions cannot corrupt bandit state or reward metrics across restarts.
+
+### Database Configuration & Migrations
+- **Configuration:** Connection string read from `DATABASE_URL` environment variable (defaults to `.env.example`).
+- **Alembic Migrations:**
+  ```bash
+  # View current migration heads
+  python -m alembic heads
+
+  # Apply all migrations to the database
+  python -m alembic upgrade head
+
+  # Rollback migration
+  python -m alembic downgrade -1
+  ```
+
+### State Restoration Flow
+```python
+from components.personalization import (
+    PersonalizationRepository,
+    restore_adaptive_engine,
+    persist_adaptive_engine,
+)
+
+# 1. Initialize repository
+repo = PersonalizationRepository()
+
+# 2. Restore engine from PostgreSQL for a given user
+engine = restore_adaptive_engine(repo, user_id="user-001")
+if engine is None:
+    # First-time user: instantiate fresh engine
+    engine = AdaptivePersonalizationEngine(user_id="user-001")
+
+# 3. Perform recommendations and feedback processing
+# ...
+
+# 4. Persist updated engine state
+persist_adaptive_engine(repo, engine, user_id="user-001")
+```
+
+### Authentication & User Boundaries
+- User identity is currently caller-supplied (`user_id="user-001"`).
+- Official authentication and JWT verification will be integrated in a subsequent milestone without altering the persistence schema.
