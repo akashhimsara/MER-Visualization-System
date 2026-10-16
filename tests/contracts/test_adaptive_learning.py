@@ -30,6 +30,7 @@ from components.personalization import (
     PRESET_ENERGETIC_POSITIVE,
     PRESET_TENSE_NEGATIVE,
     build_context_vector,
+    generate_recommendation_id,
 )
 
 REC_SCHEMA_PATH = ROOT / "contracts" / "schemas" / "recommendation.schema.json"
@@ -424,3 +425,72 @@ def test_repeated_positive_feedback_reinforces_arm_selection(rec_validator, fb_v
     assert rec_future["recommended_preset_id"] == PRESET_ENERGETIC_POSITIVE
     assert isinstance(rec_future["score"], float)
     assert rec_future["score"] > 0.95
+
+
+def test_recommendation_sequence_scoped_per_session():
+    """
+    Contract v1.1 Sequence Ownership Test:
+    1. Three recommendations in the same session (session-A) -> sequence 0, 1, 2
+    2. A new session (session-B) -> starts at sequence 0
+    3. Recommendation IDs follow rec_<session_id>_<sequence> and remain unique across sessions
+    4. user_state.recommendation_count tracks lifetime analytics separately (does not dictate stream sequence)
+    """
+    engine = AdaptivePersonalizationEngine(user_id="user_seq_scoped")
+
+    # 1. Three recommendations in session-A
+    recs_a = []
+    for i in range(3):
+        t3 = make_tier3_event(session_id="session-A", sequence=i + 1, audio_time_ms=(i + 1) * 1000)
+        rec = engine.recommend(t3)
+        recs_a.append(rec)
+
+    assert [r["sequence"] for r in recs_a] == [0, 1, 2]
+    assert [r["recommendation_id"] for r in recs_a] == [
+        generate_recommendation_id("session-A", 0, "user_seq_scoped"),
+        generate_recommendation_id("session-A", 1, "user_seq_scoped"),
+        generate_recommendation_id("session-A", 2, "user_seq_scoped"),
+    ]
+
+    # 2. A new session session-B starts at sequence 0
+    recs_b = []
+    for i in range(2):
+        t3 = make_tier3_event(session_id="session-B", sequence=i + 1, audio_time_ms=(i + 1) * 1000)
+        rec = engine.recommend(t3)
+        recs_b.append(rec)
+
+    assert [r["sequence"] for r in recs_b] == [0, 1]
+    assert [r["recommendation_id"] for r in recs_b] == [
+        generate_recommendation_id("session-B", 0, "user_seq_scoped"),
+        generate_recommendation_id("session-B", 1, "user_seq_scoped"),
+    ]
+
+    # 3. Recommendation IDs are unique across all sessions
+    all_rec_ids = [r["recommendation_id"] for r in recs_a + recs_b]
+    assert len(set(all_rec_ids)) == 5
+    for r_id in all_rec_ids:
+        assert r_id.startswith("rec_")
+        assert len(r_id) == 36
+
+    # 4. user_state.recommendation_count tracks lifetime total (3 + 2 = 5)
+    assert engine.user_state.recommendation_count == 5
+
+
+def test_cross_user_same_session_recommendation_id_uniqueness():
+    """
+    Proves User A and User B sharing the same session_id both start at sequence 0
+    while recommendation IDs remain globally unique and fixed-length (36 chars).
+    """
+    engine_a = AdaptivePersonalizationEngine(user_id="user_alpha")
+    engine_b = AdaptivePersonalizationEngine(user_id="user_beta")
+    shared_session = "shared_live_sess"
+
+    rec_a0 = engine_a.recommend(make_tier3_event(session_id=shared_session, sequence=1))
+    rec_b0 = engine_b.recommend(make_tier3_event(session_id=shared_session, sequence=1))
+
+    assert rec_a0["sequence"] == 0
+    assert rec_b0["sequence"] == 0
+    assert rec_a0["recommendation_id"] == generate_recommendation_id(shared_session, 0, "user_alpha")
+    assert rec_b0["recommendation_id"] == generate_recommendation_id(shared_session, 0, "user_beta")
+    assert rec_a0["recommendation_id"] != rec_b0["recommendation_id"]
+    assert len(rec_a0["recommendation_id"]) == 36
+    assert len(rec_b0["recommendation_id"]) == 36

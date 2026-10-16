@@ -61,6 +61,7 @@ def restore_adaptive_engine(
     engine.successful_update_count = user_state.successful_learning_updates
     engine.pending_interactions = pending
     engine.processed_feedback_ids = seen_fb_ids
+    engine._session_sequences = repository.get_session_sequences(user_id)
 
     return engine
 

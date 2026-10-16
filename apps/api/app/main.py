@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.mock_mer import generate_mock_tier3_stream, generate_mock_mer_stream
+from app.personalization_routes import router as personalization_router
 
 app = FastAPI(title="Emotion-Adaptive Real-Time Music Visualization System")
 
@@ -10,6 +11,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.include_router(
+    personalization_router,
+    prefix="/api/personalization",
+    tags=["personalization"],
 )
 
 @app.get("/health")

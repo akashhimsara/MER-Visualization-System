@@ -10,12 +10,12 @@ from sqlalchemy.orm import sessionmaker, Session
 DEFAULT_DATABASE_URL = "postgresql://username:password@localhost:5432/emotion_visualization"
 
 
-def get_database_url() -> str:
+def get_database_url() -> Optional[str]:
     """
     Retrieve DATABASE_URL from the environment.
-    Falls back to the PostgreSQL connection string documented in .env.example.
+    Returns None if DATABASE_URL is not set.
     """
-    return os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+    return os.getenv("DATABASE_URL")
 
 
 def create_db_engine(url: Optional[str] = None, **kwargs) -> Engine:
@@ -23,7 +23,7 @@ def create_db_engine(url: Optional[str] = None, **kwargs) -> Engine:
     Instantiate an SQLAlchemy Engine.
     Uses modern Psycopg 3 (psycopg) driver with SQLAlchemy 2.x.
     """
-    db_url = url or get_database_url()
+    db_url = url or get_database_url() or DEFAULT_DATABASE_URL
     # Normalize postgres:// to postgresql:// if needed for SQLAlchemy 2.x
     if db_url.startswith("postgres://"):
         db_url = "postgresql://" + db_url[len("postgres://"):]

@@ -12,8 +12,10 @@ from components.personalization.presets import (
 )
 from components.personalization.cold_start import select_cold_start_preset
 from components.personalization.engine import (
+    RECOMMENDATION_NAMESPACE,
     build_recommendation_event,
     generate_cold_start_recommendation,
+    generate_recommendation_id,
 )
 from components.personalization.feedback import (
     REWARD_DISLIKE,
@@ -48,6 +50,7 @@ from components.personalization.adaptive import (
 )
 from components.personalization.persistence import (
     Base,
+    MAX_IDENTIFIER_LENGTH,
     PersonalizationInteractionModel,
     PersonalizationLinUCBStateModel,
     PersonalizationPresetStatsModel,
@@ -67,8 +70,11 @@ from components.personalization.persistence import (
     serialize_linucb_model,
     serialize_user_state,
 )
+from components.personalization.runtime import PersonalizationRuntimeService
 
 __all__ = [
+    # Runtime Service
+    "PersonalizationRuntimeService",
     # Presets
     "PRESET_ENERGETIC_POSITIVE",
     "PRESET_CALM_POSITIVE",
@@ -79,6 +85,8 @@ __all__ = [
     # Cold-Start
     "select_cold_start_preset",
     # Recommendation Builders
+    "RECOMMENDATION_NAMESPACE",
+    "generate_recommendation_id",
     "build_recommendation_event",
     "generate_cold_start_recommendation",
     # Feedback & Rewards
@@ -109,6 +117,7 @@ __all__ = [
     "FeedbackProcessingResult",
     # Persistence Layer
     "Base",
+    "MAX_IDENTIFIER_LENGTH",
     "PersonalizationUserStateModel",
     "PersonalizationPresetStatsModel",
     "PersonalizationLinUCBStateModel",

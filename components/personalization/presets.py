@@ -20,3 +20,6 @@ MOCK_COLD_START_PRESETS = {
 }
 
 MOCK_ARM_PRESETS = list(MOCK_COLD_START_PRESETS.values())
+
+# Maximum supported length for bounded database columns and API identifiers
+MAX_IDENTIFIER_LENGTH: int = 128

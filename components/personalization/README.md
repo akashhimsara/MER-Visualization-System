@@ -193,3 +193,53 @@ persist_adaptive_engine(repo, engine, user_id="user-001")
 ### Authentication & User Boundaries
 - User identity is currently caller-supplied (`user_id="user-001"`).
 - Official authentication and JWT verification will be integrated in a subsequent milestone without altering the persistence schema.
+
+---
+
+## Milestone 8: FastAPI Runtime Integration
+
+The runtime integration exposes the Adaptive Personalization engine and PostgreSQL persistence layer over HTTP API endpoints.
+
+### End-to-End Pipeline
+```text
+MER Tier 3 Emotion Event
+       ↓
+FastAPI POST /api/personalization/recommend
+       ↓
+PersonalizationRuntimeService (User Engine Resolver / Cache)
+       ↓
+AdaptivePersonalizationEngine (Cold-Start or LinUCB)
+       ↓
+Contract v1.1 Recommendation Event
+       ↓
+User Feedback Submission
+       ↓
+FastAPI POST /api/personalization/feedback
+       ↓
+Reward Calculation & LinUCB Update
+       ↓
+PostgreSQL Persistence (Matrices, Stats, Idempotency)
+```
+
+### Runtime Endpoints
+
+| Method | Endpoint | Description | Request Body | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/personalization/recommend` | Generate visual preset recommendation from MER Tier 3 event. | `{"user_id": str, "tier3_event": {...}}` | Contract v1.1 Recommendation Event |
+| `POST` | `/api/personalization/feedback` | Process user feedback, update LinUCB bandit model, and persist learning. | `{"user_id": str, "feedback_event": {...}}` | `FeedbackResponse` (`status`, `applied`, `reward`, `arm_updated`, etc.) |
+| `GET` | `/api/personalization/users/{user_id}/state` | Read-only inspection of user metrics, preference summaries, and preset statistics. | None | JSON User Personalization State |
+
+### Swagger UI Demo
+All endpoints are available for interactive testing and presentation demonstration via Swagger UI at:
+```text
+http://localhost:8000/docs
+```
+
+### Key Runtime Guarantees
+1. **Multi-User Isolation:** Each user has an isolated `AdaptivePersonalizationEngine`. Users with identical emotional contexts develop distinct recommendation histories when their feedback diverges.
+2. **Restart Restoration:** When the application restarts or caches are cleared, `PersonalizationRuntimeService` reloads user metrics, covariance matrices ($A_a, b_a$), and processed feedback IDs from PostgreSQL.
+3. **Feedback Idempotency:** Duplicate feedback events (re-submitted `feedback_id`) are safely ignored both in memory and at the database constraint level.
+4. **Identity Boundary:** Authentication is decoupled; `user_id` is supplied by the caller until JWT authentication is implemented in a future milestone.
+5. **Temporary Presets:** Uses standardized temporary mock preset arms (`mock-energetic-positive`, etc.) from `presets.py`.
+6. **Deterministic Recommendation IDs:** Generated using UUID5 (`rec_<32_hex_chars>`, 36 characters) derived from `user_id`, `session_id`, and `sequence`. Globally unique across users and sessions while staying safely bounded within database column limits.
+7. **Identifier Length Policy & Database Consistency:** All persisted identifier fields (`user_id`, `session_id`, `preset_id`, `feedback_id`, `recommendation_id`) have an explicit maximum bound of 128 characters matching PostgreSQL `String(128)` columns. Identifiers at maximum length (128 chars) succeed normally; identifiers exceeding 128 chars are cleanly rejected with HTTP 422 / `ValueError` before persistence without silent truncation or PostgreSQL `StringDataRightTruncation` errors.

@@ -18,7 +18,7 @@ from components.personalization.context import (
 from components.personalization.engine import build_recommendation_event
 from components.personalization.feedback import RewardResult, calculate_reward
 from components.personalization.linucb import DEFAULT_ALPHA, LinUCB, LinUCBSelection
-from components.personalization.presets import MOCK_ARM_PRESETS
+from components.personalization.presets import MAX_IDENTIFIER_LENGTH, MOCK_ARM_PRESETS
 from components.personalization.user_state import (
     DEFAULT_MAX_HISTORY_SIZE,
     UserPersonalizationState,
@@ -130,6 +130,16 @@ class AdaptivePersonalizationEngine:
         max_history_size: int = DEFAULT_MAX_HISTORY_SIZE,
     ):
         self.arms: List[str] = list(arms) if arms is not None else list(MOCK_ARM_PRESETS)
+        for arm in self.arms:
+            if len(str(arm).strip()) > MAX_IDENTIFIER_LENGTH:
+                raise ValueError(
+                    f"preset_id '{arm}' exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+                )
+        if user_id and len(str(user_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+
         self.context_dimension: int = int(context_dimension)
         self.alpha: float = float(alpha)
         self.min_updates_for_linucb: int = max(1, int(min_updates_for_linucb))
@@ -143,7 +153,7 @@ class AdaptivePersonalizationEngine:
         self.successful_update_count: int = 0
         self.pending_interactions: List[Dict[str, Any]] = []
         self.processed_feedback_ids: Set[str] = set()
-        self._internal_sequence: int = 0
+        self._session_sequences: Dict[str, int] = {}
 
         # User Personalization State
         if user_state is not None:
@@ -154,6 +164,15 @@ class AdaptivePersonalizationEngine:
                 max_history_size=max_history_size,
                 presets=self.arms,
             )
+
+    @property
+    def _internal_sequence(self) -> int:
+        """Fallback property returning total sequence count across active sessions."""
+        return sum(self._session_sequences.values())
+
+    @_internal_sequence.setter
+    def _internal_sequence(self, val: int) -> None:
+        pass
 
     @property
     def is_linucb_active(self) -> bool:
@@ -174,15 +193,19 @@ class AdaptivePersonalizationEngine:
         - Stores the interaction context in memory for later reward learning.
         - Updates the user personalization state and bounded recommendation history.
         """
+        session_id = str(tier3_event["session_id"]).strip()
+        if len(session_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        audio_time_ms = tier3_event["audio_time_ms"]
+
         if recommendation_sequence is not None:
             seq = int(recommendation_sequence)
-            self._internal_sequence = seq + 1
+            self._session_sequences[session_id] = seq + 1
         else:
-            seq = self._internal_sequence
-            self._internal_sequence += 1
-
-        session_id = tier3_event["session_id"]
-        audio_time_ms = tier3_event["audio_time_ms"]
+            seq = self._session_sequences.get(session_id, 0)
+            self._session_sequences[session_id] = seq + 1
 
         # 1. Build context vector from Tier 3 continuous emotion
         ctx: ContextVector = build_context_vector(tier3_event)
@@ -208,11 +231,13 @@ class AdaptivePersonalizationEngine:
             recommended_preset_id=preset_id,
             strategy=strategy,
             score=score,
+            user_id=self.user_state.user_id if self.user_state else None,
         )
 
         # 4. Store pending interaction context in memory
         interaction = {
             "session_id": session_id,
+            "sequence": seq,
             "recommendation_id": rec_event["recommendation_id"],
             "recommended_preset_id": preset_id,
             "context_vector": ctx.to_list(),
@@ -256,6 +281,19 @@ class AdaptivePersonalizationEngine:
         feedback_id = feedback_event.get("feedback_id")
         session_id = feedback_event.get("session_id")
         preset_id = feedback_event.get("preset_id")
+
+        if feedback_id and len(str(feedback_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"feedback_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if session_id and len(str(session_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if preset_id and len(str(preset_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
 
         # 1. Duplicate feedback ID check
         if feedback_id and feedback_id in self.processed_feedback_ids:
