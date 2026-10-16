@@ -21,7 +21,6 @@ Covers all 17 verification points from STEP 10:
 17. Existing /health and mock MER routes continue working.
 """
 
-import importlib
 import json
 import os
 import sys
@@ -40,12 +39,12 @@ if str(ROOT) not in sys.path:
 API_DIR = ROOT / "apps" / "api"
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
-_main_mod = importlib.import_module("app.main")
-_routes_mod = importlib.import_module("app.personalization_routes")
 
-app = _main_mod.app
-get_personalization_service = _routes_mod.get_personalization_service
-set_personalization_service = _routes_mod.set_personalization_service
+from app.main import app
+from app.personalization_routes import (
+    get_personalization_service,
+    set_personalization_service,
+)
 from components.personalization import (
     Base,
     MAX_IDENTIFIER_LENGTH,
@@ -848,7 +847,7 @@ def test_concurrency_safety_same_user(runtime_service):
     # Run 10 recommendation and 5 feedback operations concurrently across worker threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         rec_futures = [executor.submit(do_recommend, i) for i in range(10)]
-        fb_futures = [executor.submit(do_feedback, i) for i in range(5)]
+        fb_futures = [executor.submit(do_feedback, i) for i in range(5)] 
         recs = [f.result() for f in rec_futures]
         fbs = [f.result() for f in fb_futures]
 
@@ -1168,3 +1167,4 @@ def test_normal_contract_v1_1_flows_remain_unchanged(client):
     assert rec_res_next.status_code == 200
     assert rec_res_next.json()["strategy"] == "linucb"
     assert list(REC_VALIDATOR.iter_errors(rec_res_next.json())) == []
+
