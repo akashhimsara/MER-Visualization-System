@@ -24,6 +24,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 
+# Maximum supported length for bounded VARCHAR identifier columns
+MAX_IDENTIFIER_LENGTH: int = 128
+
 Base = declarative_base()
 
 
@@ -33,11 +36,11 @@ class PersonalizationUserStateModel(Base):
     """
     __tablename__ = "personalization_user_state"
 
-    user_id = Column(String(128), primary_key=True)
+    user_id = Column(String(MAX_IDENTIFIER_LENGTH), primary_key=True)
     recommendation_count = Column(Integer, default=0, nullable=False)
     feedback_count = Column(Integer, default=0, nullable=False)
     successful_learning_updates = Column(Integer, default=0, nullable=False)
-    last_recommended_preset = Column(String(128), nullable=True)
+    last_recommended_preset = Column(String(MAX_IDENTIFIER_LENGTH), nullable=True)
     last_feedback_type = Column(String(64), nullable=True)
     cumulative_reward = Column(Float, default=0.0, nullable=False)
     numerical_reward_count = Column(Integer, default=0, nullable=False)

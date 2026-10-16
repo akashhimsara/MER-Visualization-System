@@ -10,6 +10,7 @@ from components.personalization.persistence.database import (
 )
 from components.personalization.persistence.models import (
     Base,
+    MAX_IDENTIFIER_LENGTH,
     PersonalizationInteractionModel,
     PersonalizationLinUCBStateModel,
     PersonalizationPresetStatsModel,
@@ -39,6 +40,7 @@ __all__ = [
     "get_session_factory",
     # Models
     "Base",
+    "MAX_IDENTIFIER_LENGTH",
     "PersonalizationUserStateModel",
     "PersonalizationPresetStatsModel",
     "PersonalizationLinUCBStateModel",

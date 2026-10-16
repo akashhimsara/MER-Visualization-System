@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from components.personalization.linucb import DEFAULT_ALPHA, LinUCB
 from components.personalization.persistence.database import get_session_factory
 from components.personalization.persistence.models import (
+    MAX_IDENTIFIER_LENGTH,
     PersonalizationInteractionModel,
     PersonalizationLinUCBStateModel,
     PersonalizationPresetStatsModel,
@@ -46,7 +47,11 @@ class PersonalizationRepository:
     def save_user_state(self, user_state: UserPersonalizationState) -> None:
         """Persist or update UserPersonalizationState and all per-preset statistics."""
         data = serialize_user_state(user_state)
-        user_id = user_state.user_id
+        user_id = str(user_state.user_id).strip()
+        if len(user_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
 
         with self._get_session() as session:
             with session.begin():
@@ -66,14 +71,19 @@ class PersonalizationRepository:
 
                 # Preset statistics upsert
                 for pid, pdata in data.get("preset_stats", {}).items():
+                    clean_pid = str(pid).strip()
+                    if len(clean_pid) > MAX_IDENTIFIER_LENGTH:
+                        raise ValueError(
+                            f"preset_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+                        )
                     stats_record = (
                         session.query(PersonalizationPresetStatsModel)
-                        .filter_by(user_id=user_id, preset_id=pid)
+                        .filter_by(user_id=user_id, preset_id=clean_pid)
                         .first()
                     )
                     if not stats_record:
                         stats_record = PersonalizationPresetStatsModel(
-                            user_id=user_id, preset_id=pid
+                            user_id=user_id, preset_id=clean_pid
                         )
                         session.add(stats_record)
 
@@ -176,25 +186,36 @@ class PersonalizationRepository:
 
     def save_linucb_state(self, user_id: str, model: LinUCB) -> None:
         """Persist or update LinUCB ridge regression parameters (A and b) for all arms."""
+        clean_uid = str(user_id).strip()
+        if len(clean_uid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+
         with self._get_session() as session:
             with session.begin():
                 for arm in model.arms:
+                    clean_arm = str(arm).strip()
+                    if len(clean_arm) > MAX_IDENTIFIER_LENGTH:
+                        raise ValueError(
+                            f"arm_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+                        )
                     arm_data = serialize_linucb_arm(
-                        arm_id=arm,
-                        A_a=model.A[arm],
-                        b_a=model.b[arm],
+                        arm_id=clean_arm,
+                        A_a=model.A[clean_arm],
+                        b_a=model.b[clean_arm],
                         context_dimension=model.context_dimension,
                         alpha=model.alpha,
                     )
                     record = (
                         session.query(PersonalizationLinUCBStateModel)
-                        .filter_by(user_id=user_id, arm_id=arm)
+                        .filter_by(user_id=clean_uid, arm_id=clean_arm)
                         .first()
                     )
                     if not record:
                         record = PersonalizationLinUCBStateModel(
-                            user_id=user_id,
-                            arm_id=arm,
+                            user_id=clean_uid,
+                            arm_id=clean_arm,
                         )
                         session.add(record)
 
@@ -245,16 +266,37 @@ class PersonalizationRepository:
 
     def save_interaction(self, interaction: Dict[str, Any], user_id: str) -> None:
         """Persist an emitted recommendation interaction."""
+        rec_id = str(interaction["recommendation_id"]).strip()
+        clean_uid = str(user_id).strip()
+        session_id = str(interaction["session_id"]).strip()
+        preset_id = str(interaction["recommended_preset_id"]).strip()
+
+        if len(rec_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"recommendation_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(clean_uid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(session_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"session_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(preset_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"preset_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+
         with self._get_session() as session:
             with session.begin():
-                rec_id = interaction["recommendation_id"]
                 existing = session.query(PersonalizationInteractionModel).filter_by(recommendation_id=rec_id).first()
                 if not existing:
                     record = PersonalizationInteractionModel(
                         recommendation_id=rec_id,
-                        user_id=user_id,
-                        session_id=interaction["session_id"],
-                        preset_id=interaction["recommended_preset_id"],
+                        user_id=clean_uid,
+                        session_id=session_id,
+                        preset_id=preset_id,
                         audio_time_ms=int(interaction["audio_time_ms"]),
                         sequence=int(interaction.get("sequence", 0)),
                         context_vector=sanitize_for_json(interaction["context_vector"]),
@@ -307,6 +349,29 @@ class PersonalizationRepository:
                 for r in records
             ]
 
+    def get_session_sequences(self, user_id: str) -> Dict[str, int]:
+        """
+        Return a mapping of session_id -> next_sequence for all recorded sessions of a user.
+        Ensures recommendations within an existing session continue seamlessly across restarts.
+        """
+        from sqlalchemy import func
+
+        with self._get_session() as session:
+            results = (
+                session.query(
+                    PersonalizationInteractionModel.session_id,
+                    func.max(PersonalizationInteractionModel.sequence),
+                )
+                .filter_by(user_id=user_id)
+                .group_by(PersonalizationInteractionModel.session_id)
+                .all()
+            )
+            return {
+                row[0]: int(row[1]) + 1
+                for row in results
+                if row[0] is not None and row[1] is not None
+            }
+
     # -----------------------------------------------------------------------
     # Processed Feedback Idempotency
     # -----------------------------------------------------------------------
@@ -330,7 +395,33 @@ class PersonalizationRepository:
         Record feedback in the idempotency ledger.
         Returns True if saved, False if feedback_id is a duplicate.
         """
-        feedback_id = feedback_record["feedback_id"]
+        feedback_id = str(feedback_record["feedback_id"]).strip()
+        clean_uid = str(user_id).strip()
+        session_id = str(feedback_record["session_id"]).strip()
+        preset_id = str(feedback_record["preset_id"]).strip()
+        rec_id = feedback_record.get("recommendation_id")
+
+        if len(feedback_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"feedback_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(clean_uid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(session_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"session_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if len(preset_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"preset_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if rec_id and len(str(rec_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"recommendation_id exceeds maximum column length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+
         with self._get_session() as session:
             with session.begin():
                 existing = (
@@ -343,14 +434,14 @@ class PersonalizationRepository:
 
                 record = PersonalizationProcessedFeedbackModel(
                     feedback_id=feedback_id,
-                    user_id=user_id,
-                    session_id=feedback_record["session_id"],
-                    preset_id=feedback_record["preset_id"],
+                    user_id=clean_uid,
+                    session_id=session_id,
+                    preset_id=preset_id,
                     feedback_type=feedback_record["feedback_type"],
                     reward=feedback_record.get("reward"),
                     raw_value=sanitize_for_json(feedback_record.get("raw_value")),
                     is_auxiliary=bool(feedback_record.get("is_auxiliary", False)),
-                    recommendation_id=feedback_record.get("recommendation_id"),
+                    recommendation_id=str(rec_id).strip() if rec_id else None,
                 )
                 session.add(record)
                 return True

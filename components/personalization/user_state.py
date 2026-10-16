@@ -7,7 +7,7 @@ Keeps interaction statistics strictly decoupled from LinUCB mathematical state (
 """
 
 from typing import Any, Dict, List, Optional, Sequence
-from components.personalization.presets import MOCK_ARM_PRESETS
+from components.personalization.presets import MAX_IDENTIFIER_LENGTH, MOCK_ARM_PRESETS
 
 DEFAULT_MAX_HISTORY_SIZE: int = 20
 
@@ -20,8 +20,13 @@ class PresetStats(dict):
     """
 
     def __init__(self, preset_id: str):
+        clean_pid = str(preset_id).strip()
+        if len(clean_pid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
         super().__init__(
-            preset_id=preset_id,
+            preset_id=clean_pid,
             recommendation_count=0,
             feedback_count=0,
             like_count=0,
@@ -200,7 +205,12 @@ class UserPersonalizationState:
         max_history_size: int = DEFAULT_MAX_HISTORY_SIZE,
         presets: Optional[Sequence[str]] = None,
     ):
-        self.user_id: str = str(user_id)
+        clean_user_id = str(user_id).strip()
+        if len(clean_user_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"user_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        self.user_id: str = clean_user_id
         self.max_history_size: int = max(1, int(max_history_size))
 
         self.recommendation_count: int = 0
@@ -229,9 +239,14 @@ class UserPersonalizationState:
 
     def get_preset_stats(self, preset_id: str) -> PresetStats:
         """Retrieve or lazily initialize statistics for a specific preset ID."""
-        if preset_id not in self.preset_stats:
-            self.preset_stats[preset_id] = PresetStats(preset_id)
-        return self.preset_stats[preset_id]
+        clean_pid = str(preset_id).strip()
+        if len(clean_pid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(
+                f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+            )
+        if clean_pid not in self.preset_stats:
+            self.preset_stats[clean_pid] = PresetStats(clean_pid)
+        return self.preset_stats[clean_pid]
 
     def record_recommendation(
         self,
@@ -244,16 +259,27 @@ class UserPersonalizationState:
         sequence: Optional[int] = None,
     ) -> None:
         """Record an emitted recommendation into user state and bounded history."""
-        self.recommendation_count += 1
-        self.last_recommended_preset = preset_id
+        clean_pid = str(preset_id).strip()
+        clean_rec_id = str(recommendation_id).strip()
+        clean_sess_id = str(session_id).strip()
 
-        stats = self.get_preset_stats(preset_id)
+        if len(clean_pid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+        if len(clean_rec_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"recommendation_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+        if len(clean_sess_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+
+        self.recommendation_count += 1
+        self.last_recommended_preset = clean_pid
+
+        stats = self.get_preset_stats(clean_pid)
         stats.recommendation_count += 1
 
         record = {
-            "recommendation_id": recommendation_id,
-            "preset_id": preset_id,
-            "session_id": session_id,
+            "recommendation_id": clean_rec_id,
+            "preset_id": clean_pid,
+            "session_id": clean_sess_id,
             "audio_time_ms": audio_time_ms,
             "strategy": strategy,
             "score": score,
@@ -275,6 +301,17 @@ class UserPersonalizationState:
         is_auxiliary: bool = False,
     ) -> None:
         """Record a processed feedback event into user state and bounded history."""
+        clean_pid = str(preset_id).strip()
+        clean_sess_id = str(session_id).strip()
+        if len(clean_pid) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+        if len(clean_sess_id) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+        if feedback_id and len(str(feedback_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"feedback_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+        if recommendation_id and len(str(recommendation_id).strip()) > MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"recommendation_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters.")
+
         self.feedback_count += 1
         self.last_feedback_type = feedback_type
 

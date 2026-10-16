@@ -42,6 +42,7 @@ from components.personalization import (
     deserialize_linucb_arm,
     deserialize_linucb_model,
     deserialize_user_state,
+    generate_recommendation_id,
     persist_adaptive_engine,
     restore_adaptive_engine,
     sanitize_for_json,
@@ -371,6 +372,208 @@ def test_invalid_matrix_dimensions_rejected():
 
     with pytest.raises(ValueError, match="Corrupted or invalid b vector shape"):
         deserialize_linucb_arm(corrupted_b, expected_dimension=3)
+
+
+def _make_tier3(session_id: str = "sess_001", seq: int = 1, time_ms: int = 1000, valence: float = 0.8, arousal: float = 0.8) -> Dict[str, Any]:
+    return {
+        "schema_version": "1.1",
+        "event_type": "mer.tier3",
+        "session_id": session_id,
+        "sequence": seq,
+        "audio_time_ms": time_ms,
+        "emotion": {"valence": valence, "arousal": arousal, "confidence": None},
+    }
+
+
+def test_persistence_restart_preserves_session_sequences_without_duplicate_ids(in_memory_repo):
+    """
+    Sequence Ownership & Persistence Test:
+    1. Three recommendations in session-A -> sequence 0, 1, 2
+    2. A new session session-B -> starts at sequence 0
+    3. Recommendation IDs follow rec_<session_id>_<sequence> and are unique across sessions
+    4. Persistence and restart restores session sequences so continued sessions do NOT duplicate IDs
+    5. User analytics counter recommendation_count is tracked separately as a lifetime counter
+    """
+    engine = AdaptivePersonalizationEngine(user_id="user_restart_seq_persist")
+
+    # 1. Three recommendations in session-A
+    recs_a = []
+    for i in range(3):
+        t3 = _make_tier3(session_id="session-A", seq=i + 1, time_ms=(i + 1) * 1000)
+        recs_a.append(engine.recommend(t3))
+
+    assert [r["sequence"] for r in recs_a] == [0, 1, 2]
+    assert [r["recommendation_id"] for r in recs_a] == [
+        generate_recommendation_id("session-A", 0, "user_restart_seq_persist"),
+        generate_recommendation_id("session-A", 1, "user_restart_seq_persist"),
+        generate_recommendation_id("session-A", 2, "user_restart_seq_persist"),
+    ]
+
+    # 2. A new session session-B starts at sequence 0
+    recs_b = []
+    for i in range(2):
+        t3 = _make_tier3(session_id="session-B", seq=i + 1, time_ms=(i + 1) * 1000)
+        recs_b.append(engine.recommend(t3))
+
+    assert [r["sequence"] for r in recs_b] == [0, 1]
+    assert [r["recommendation_id"] for r in recs_b] == [
+        generate_recommendation_id("session-B", 0, "user_restart_seq_persist"),
+        generate_recommendation_id("session-B", 1, "user_restart_seq_persist"),
+    ]
+
+    # 3. Recommendation IDs are unique across all sessions
+    all_ids = [r["recommendation_id"] for r in recs_a + recs_b]
+    assert len(set(all_ids)) == 5
+    for r_id in all_ids:
+        assert r_id.startswith("rec_")
+        assert len(r_id) == 36
+    assert engine.user_state.recommendation_count == 5
+
+    # 4. Persist and restore engine
+    persist_adaptive_engine(in_memory_repo, engine)
+    restored = restore_adaptive_engine(in_memory_repo, user_id="user_restart_seq_persist")
+    assert restored is not None
+
+    # session-A continues from sequence 3 -> generate_recommendation_id (no duplicate IDs)
+    t3_a_cont = _make_tier3(session_id="session-A", seq=4, time_ms=4000)
+    rec_a3 = restored.recommend(t3_a_cont)
+    assert rec_a3["sequence"] == 3
+    assert rec_a3["recommendation_id"] == generate_recommendation_id("session-A", 3, "user_restart_seq_persist")
+
+    # session-B continues from sequence 2 -> generate_recommendation_id
+    t3_b_cont = _make_tier3(session_id="session-B", seq=3, time_ms=3000)
+    rec_b2 = restored.recommend(t3_b_cont)
+    assert rec_b2["sequence"] == 2
+    assert rec_b2["recommendation_id"] == generate_recommendation_id("session-B", 2, "user_restart_seq_persist")
+
+    # brand new session session-C starts at sequence 0 -> generate_recommendation_id
+    t3_c = _make_tier3(session_id="session-C", seq=1, time_ms=1000)
+    rec_c0 = restored.recommend(t3_c)
+    assert rec_c0["sequence"] == 0
+    assert rec_c0["recommendation_id"] == generate_recommendation_id("session-C", 0, "user_restart_seq_persist")
+
+    # Lifetime recommendation counter in user_state is 8
+    assert restored.user_state.recommendation_count == 8
+
+
+def test_persistence_cross_user_same_session_no_collision(in_memory_repo):
+    """
+    Direct persistence test:
+    User A and User B sharing the same session_id:
+    - start sequence at 0
+    - produce distinct recommendation IDs (rec_<uuid5_hex>)
+    - interactions persist without unique constraint violations
+    - both can be restored and resume correct per-user sequences
+    """
+    user_a = "user_pers_A"
+    user_b = "user_pers_B"
+    shared_session = "sess_collision_check"
+
+    engine_a = AdaptivePersonalizationEngine(user_id=user_a)
+    engine_b = AdaptivePersonalizationEngine(user_id=user_b)
+
+    # Both users generate recommendations for the shared session
+    t3 = _make_tier3(session_id=shared_session, seq=1, time_ms=1000)
+    rec_a0 = engine_a.recommend(t3)
+    rec_b0 = engine_b.recommend(t3)
+
+    assert rec_a0["sequence"] == 0
+    assert rec_b0["sequence"] == 0
+    assert rec_a0["recommendation_id"] == generate_recommendation_id(shared_session, 0, user_a)
+    assert rec_b0["recommendation_id"] == generate_recommendation_id(shared_session, 0, user_b)
+    assert rec_a0["recommendation_id"] != rec_b0["recommendation_id"]
+    assert len(rec_a0["recommendation_id"]) == 36
+    assert len(rec_b0["recommendation_id"]) == 36
+
+    # Persist both engines to the same repository
+    persist_adaptive_engine(in_memory_repo, engine_a)
+    persist_adaptive_engine(in_memory_repo, engine_b)
+
+    # Verify both interactions persisted cleanly without collision
+    pending_a = in_memory_repo.load_pending_interactions(user_id=user_a)
+    pending_b = in_memory_repo.load_pending_interactions(user_id=user_b)
+    assert len(pending_a) == 1
+    assert len(pending_b) == 1
+    assert pending_a[0]["recommendation_id"] == rec_a0["recommendation_id"]
+    assert pending_b[0]["recommendation_id"] == rec_b0["recommendation_id"]
+
+    # Restore both engines
+    restored_a = restore_adaptive_engine(in_memory_repo, user_id=user_a)
+    restored_b = restore_adaptive_engine(in_memory_repo, user_id=user_b)
+    assert restored_a is not None
+    assert restored_b is not None
+
+    # Both resume sequence at 1 without duplicate IDs
+    rec_a1 = restored_a.recommend(_make_tier3(session_id=shared_session, seq=2, time_ms=2000))
+    rec_b1 = restored_b.recommend(_make_tier3(session_id=shared_session, seq=2, time_ms=2000))
+
+    assert rec_a1["sequence"] == 1
+    assert rec_b1["sequence"] == 1
+    assert rec_a1["recommendation_id"] == generate_recommendation_id(shared_session, 1, user_a)
+    assert rec_b1["recommendation_id"] == generate_recommendation_id(shared_session, 1, user_b)
+    assert rec_a1["recommendation_id"] != rec_b1["recommendation_id"]
+
+
+def test_recommendation_id_hardening_long_identifiers_and_fixed_length(in_memory_repo):
+    """
+    Hardening Test:
+    1. very long user_id
+    2. very long session_id
+    3. two users with the same session_id
+    4. restart continuation
+    5. recommendation_id length remains within DB column limit (VARCHAR(128))
+    6. no persistence collision
+    """
+    # 1 & 2. Very long user_id and session_id (e.g. 120 chars each, close to VARCHAR(128) max)
+    long_user_a = "user_alpha_" + ("x" * 105)
+    long_user_b = "user_beta_" + ("y" * 106)
+    long_session = "sess_long_" + ("z" * 105)
+
+    assert len(long_user_a) == 116
+    assert len(long_user_b) == 116
+    assert len(long_session) == 115
+
+    # 5. recommendation_id length remains strictly bounded (exactly 36 chars) <= 128
+    rec_id_a0 = generate_recommendation_id(long_session, 0, long_user_a)
+    rec_id_b0 = generate_recommendation_id(long_session, 0, long_user_b)
+
+    assert len(rec_id_a0) == 36
+    assert len(rec_id_b0) == 36
+    assert len(rec_id_a0) <= 128
+
+    # Even with 5,000 char strings, output length is strictly 36
+    assert len(generate_recommendation_id("s" * 5000, 0, "u" * 5000)) == 36
+
+    # 3. Two users with the same session_id have distinct IDs
+    assert rec_id_a0 != rec_id_b0
+
+    # 6. No persistence collision: persist both to database
+    engine_a = AdaptivePersonalizationEngine(user_id=long_user_a)
+    engine_b = AdaptivePersonalizationEngine(user_id=long_user_b)
+
+    t3 = _make_tier3(session_id=long_session, seq=1, time_ms=1000)
+    rec_a = engine_a.recommend(t3)
+    rec_b = engine_b.recommend(t3)
+
+    assert rec_a["recommendation_id"] == rec_id_a0
+    assert rec_b["recommendation_id"] == rec_id_b0
+
+    persist_adaptive_engine(in_memory_repo, engine_a)
+    persist_adaptive_engine(in_memory_repo, engine_b)
+
+    # 4. Restart continuation does not collide and resumes per-session sequence
+    restored_a = restore_adaptive_engine(in_memory_repo, long_user_a)
+    restored_b = restore_adaptive_engine(in_memory_repo, long_user_b)
+
+    rec_a_next = restored_a.recommend(_make_tier3(session_id=long_session, seq=2, time_ms=2000))
+    rec_b_next = restored_b.recommend(_make_tier3(session_id=long_session, seq=2, time_ms=2000))
+
+    assert rec_a_next["sequence"] == 1
+    assert rec_b_next["sequence"] == 1
+    assert len(rec_a_next["recommendation_id"]) == 36
+    assert len(rec_b_next["recommendation_id"]) == 36
+    assert rec_a_next["recommendation_id"] != rec_b_next["recommendation_id"]
+    assert rec_a_next["recommendation_id"] != rec_id_a0
 
 
 # Live PostgreSQL Integration (Conditional)

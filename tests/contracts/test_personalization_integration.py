@@ -11,7 +11,7 @@ if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
 from app.mock_mer import MockMERScheduler
-from components.personalization import select_cold_start_preset
+from components.personalization import generate_recommendation_id, select_cold_start_preset
 
 REC_SCHEMA_PATH = ROOT / "contracts" / "schemas" / "recommendation.schema.json"
 TIER3_SCHEMA_PATH = ROOT / "contracts" / "schemas" / "mer-tier3.schema.json"
@@ -69,7 +69,7 @@ def test_multiplexed_scheduler_emits_one_recommendation_per_tier3():
             assert rec["recommended_preset_id"] == expected_preset
 
             # Deterministic recommendation_id check
-            assert rec["recommendation_id"] == f"rec_{session_id}_{rec['sequence']}"
+            assert rec["recommendation_id"] == generate_recommendation_id(session_id, rec["sequence"])
 
             tier3_events.append(t3)
             rec_events.append(rec)
