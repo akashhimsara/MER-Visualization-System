@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.1",
+  "event_type": "mer.tier1",
+  "session_id": "sess_demo_001",
+  "sequence": 124,
+  "audio_time_ms": 12400,
+  "rms": 0.72,
+  "spectral_centroid_hz": 2415.6,
+  "onset": {
+    "detected": true,
+    "strength": 0.81
+  },
+  "beat": {
+    "detected": true,
+    "strength": 0.74
+  }
+}

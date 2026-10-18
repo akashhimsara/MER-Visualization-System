@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.1",
+  "event_type": "feedback.event",
+  "session_id": "sess_demo_001",
+  "sequence": 5,
+  "audio_time_ms": 48000,
+  "feedback_id": "fb_005",
+  "preset_id": "neon_tunnel_warm_01",
+  "feedback": {
+    "type": "rating",
+    "rating": 4
+  }
+}

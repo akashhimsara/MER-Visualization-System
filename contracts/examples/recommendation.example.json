@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.1",
+  "event_type": "personalization.recommendation",
+  "session_id": "sess_demo_001",
+  "sequence": 8,
+  "audio_time_ms": 12400,
+  "recommendation_id": "rec_008",
+  "recommended_preset_id": "neon_tunnel_warm_01",
+  "score": 0.84,
+  "strategy": "linucb"
+}

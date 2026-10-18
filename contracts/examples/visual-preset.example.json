@@ -1,0 +1,26 @@
+{
+  "preset_id": "neon_tunnel_warm_01",
+  "preset_version": 1,
+  "display_name": "Warm Neon Tunnel",
+  "visual_mode": "NEON_TUNNEL",
+  "parameters": {
+    "particles": {
+      "color": "#ff7700",
+      "density": 350,
+      "size": 0.22,
+      "opacity": 0.85
+    },
+    "motion": {
+      "speed": 1.4,
+      "intensity": 1.2
+    },
+    "lighting": {
+      "color": "#ff8800",
+      "intensity": 2.8,
+      "bloom_strength": 0.45
+    },
+    "background": {
+      "color": "#0c0502"
+    }
+  }
+}
