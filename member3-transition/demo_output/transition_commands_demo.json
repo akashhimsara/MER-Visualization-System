@@ -1,0 +1,44 @@
+[
+  {
+    "schema_version": "1.1",
+    "event_type": "transition.command",
+    "session_id": "sess_demo_001",
+    "sequence": 11,
+    "audio_time_ms": 12000,
+    "command_id": "trans_011",
+    "should_transition": true,
+    "target_state_id": "state_0038",
+    "transition": {
+      "style": "interpolate",
+      "scale": "major",
+      "duration_ms": 1200,
+      "strength": 0.6
+    },
+    "reason": {
+      "emotion_distance": 1.005,
+      "landmark": "beat",
+      "persistence": 0.08
+    }
+  },
+  {
+    "schema_version": "1.1",
+    "event_type": "transition.command",
+    "session_id": "sess_demo_001",
+    "sequence": 21,
+    "audio_time_ms": 22000,
+    "command_id": "trans_021",
+    "should_transition": true,
+    "target_state_id": "state_0038",
+    "transition": {
+      "style": "interpolate",
+      "scale": "major",
+      "duration_ms": 1200,
+      "strength": 0.6
+    },
+    "reason": {
+      "emotion_distance": 1.051,
+      "landmark": "beat",
+      "persistence": 0.05
+    }
+  }
+]
