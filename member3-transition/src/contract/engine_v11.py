@@ -1,45 +1,60 @@
+"""
+Contract v1.1 layer for Member 3.
+ 
+Takes Tier3-style input (valence, arousal in -1..+1, confidence may be None)
+plus the latest Tier1 landmark (beat / onset / None) and returns a
+`transition.command` dict that follows
+contracts/schemas/transition-command.schema.json.
+ 
+It REUSES the existing TransitionOrchestrator for the decision. Nothing about
+the research pipeline is changed here; this file only converts input/output.
+ 
+PROVISIONAL values (to be agreed with the leader / Member 2):
+  - scale thresholds on emotion_distance (no downbeat is available from MER)
+  - duration_ms per scale
+"""
 import json
 import math
 from pathlib import Path
-
+ 
 from src.ml.deam_emotion_adapter import map_valence_arousal_to_emotion
 from src.pipeline.orchestrator import TransitionOrchestrator
-
+ 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_STATE = REPO_ROOT / "contracts" / "examples" / "target-visual-state.example.json"
-
+ 
 # PROVISIONAL
 MINOR_BELOW = 0.35
 MODERATE_BELOW = 0.75
 DURATION_MS = {"minor": 400, "moderate": 700, "major": 1200}
-
-
+ 
+ 
 class MockTargetStateProvider:
     """Stands in for Member 2's TargetVisualState stream.
     Returns the state_id from the contract example. Replace with the real feed."""
-
+ 
     def __init__(self, path=EXAMPLE_STATE):
         with open(path, encoding="utf-8") as f:
             self.state_id = json.load(f)["state_id"]
-
+ 
     def target_for(self, valence, arousal):
         return self.state_id
-
-
+ 
+ 
 def va_margin(valence, arousal):
     """Internal heuristic (NOT a confidence). Used only when MER gives
     confidence = null, so the existing 0.70 gate still has a number."""
     return min(1.0, 0.5 + 1.5 * min(abs(valence), abs(arousal)))
-
-
+ 
+ 
 def scale_for(distance):
     if distance < MINOR_BELOW:
         return "minor"
     if distance < MODERATE_BELOW:
         return "moderate"
     return "major"
-
-
+ 
+ 
 class ContractTransitionEngine:
     def __init__(self, session_id, state_provider=None, orchestrator=None):
         self.session_id = session_id
@@ -48,7 +63,8 @@ class ContractTransitionEngine:
         self.sequence = 0
         self.last_time_ms = None
         self.anchor_va = None  # VA at start / at last transition
-
+        self.last_result = None  # last orchestrator result (for evaluation scripts)
+ 
     def _envelope(self, audio_time_ms):
         env = {
             "schema_version": "1.1",
@@ -60,42 +76,53 @@ class ContractTransitionEngine:
         }
         self.sequence += 1
         return env
-
+ 
     def _no_transition(self, audio_time_ms, distance=None, persistence=0.0):
         cmd = self._envelope(audio_time_ms)
         cmd.update(should_transition=False, target_state_id=None, transition=None, reason=None)
         return cmd
-
+ 
     def process_tier3(self, audio_time_ms, valence, arousal, confidence=None, landmark=None):
         """landmark: None | "beat" | "onset" (latest Tier1 event).
         Returns a command dict, or None if the message is stale / out of order."""
+        self.last_result = None
         # delayed or duplicate message -> ignore, do not move time backwards
         if self.last_time_ms is not None and audio_time_ms <= self.last_time_ms:
             return None
         self.last_time_ms = audio_time_ms
-
+ 
         # missing values -> no transition, state untouched
         if valence is None or arousal is None:
             return self._no_transition(audio_time_ms)
-
+ 
         if self.anchor_va is None:
             self.anchor_va = (valence, arousal)
-
+ 
         conf = confidence if confidence is not None else va_margin(valence, arousal)
-        result = self.orchestrator.process_frame(
-            timestamp=audio_time_ms / 1000.0,
-            emotion=map_valence_arousal_to_emotion(valence, arousal),
-            confidence=conf,
-            beat=(landmark == "beat"),
-            onset=(landmark == "onset"),
-        )
+        # confidence is null -> the 0.70 confidence gate must NOT be applied:
+        # va_margin is only a heuristic, not a real confidence (contract rule).
+        detector = self.orchestrator.change_detector
+        saved_gate = detector.confidence_threshold
+        if confidence is None:
+            detector.confidence_threshold = 0.0
+        try:
+            result = self.orchestrator.process_frame(
+                timestamp=audio_time_ms / 1000.0,
+                emotion=map_valence_arousal_to_emotion(valence, arousal),
+                confidence=conf,
+                beat=(landmark == "beat"),
+                onset=(landmark == "onset"),
+            )
+        finally:
+            detector.confidence_threshold = saved_gate
+        self.last_result = result
         if not result["transition"]:
             return self._no_transition(audio_time_ms)
-
+ 
         distance = math.dist(self.anchor_va, (valence, arousal))
         scale = scale_for(distance)
         self.anchor_va = (valence, arousal)
-
+ 
         cmd = self._envelope(audio_time_ms)
         cmd.update(
             should_transition=True,

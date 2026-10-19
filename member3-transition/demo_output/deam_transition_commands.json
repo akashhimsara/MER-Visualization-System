@@ -1,0 +1,23 @@
+[
+  {
+    "schema_version": "1.1",
+    "event_type": "transition.command",
+    "session_id": "deam_668",
+    "sequence": 50,
+    "audio_time_ms": 40000,
+    "command_id": "trans_050",
+    "should_transition": true,
+    "target_state_id": "state_0038",
+    "transition": {
+      "style": "interpolate",
+      "scale": "minor",
+      "duration_ms": 400,
+      "strength": 0.6
+    },
+    "reason": {
+      "emotion_distance": 0.183,
+      "landmark": "beat",
+      "persistence": 0.02
+    }
+  }
+]
