@@ -15,6 +15,7 @@ __pycache__/
 .env.*.local
 
 # Data
+temp_auto_push.bat
 data/raw/
 data/interim/
 data/processed/
@@ -31,6 +32,7 @@ model_artifacts/*
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 pyrightconfig.json
+.gitignore
+branch_structure.json
