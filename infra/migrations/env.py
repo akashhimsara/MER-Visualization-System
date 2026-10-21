@@ -28,7 +28,8 @@ if env_db_url:
     # Normalize postgres:// to postgresql://
     if env_db_url.startswith("postgres://"):
         env_db_url = "postgresql://" + env_db_url[len("postgres://"):]
-    config.set_main_option("sqlalchemy.url", env_db_url)
+    # Escape % characters for configparser interpolation safety
+    config.set_main_option("sqlalchemy.url", env_db_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:

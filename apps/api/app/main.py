@@ -5,9 +5,24 @@ from app.personalization_routes import router as personalization_router
 
 app = FastAPI(title="Emotion-Adaptive Real-Time Music Visualization System")
 
+import os
+
+cors_origins_env = os.getenv("CORS_ORIGINS")
+if cors_origins_env:
+    allowed_origins = [orig.strip() for orig in cors_origins_env.split(",") if orig.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
