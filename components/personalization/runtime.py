@@ -161,10 +161,12 @@ class PersonalizationRuntimeService:
         user_id: str,
         tier3_event: Dict[str, Any],
         sequence: Optional[int] = None,
+        candidate_visual_ids: Optional[Sequence[str]] = None,
+        default_visual_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a Contract v1.1 Recommendation event for the user from a MER Tier 3 event.
-        Guarantees deterministic sequence advancement and concurrency safety.
+        Guarantees deterministic sequence advancement, candidate-aware filtering, and concurrency safety.
         """
         clean_user_id = _validate_identifier("user_id", user_id)
         _validate_identifier("session_id", tier3_event.get("session_id"))
@@ -172,7 +174,12 @@ class PersonalizationRuntimeService:
         user_lock = self._get_user_lock(clean_user_id)
         with user_lock:
             engine = self.get_engine(clean_user_id)
-            rec_event = engine.recommend(tier3_event, recommendation_sequence=sequence)
+            rec_event = engine.recommend(
+                tier3_event,
+                recommendation_sequence=sequence,
+                candidate_visual_ids=candidate_visual_ids,
+                default_visual_id=default_visual_id,
+            )
 
             # Persist updated user state and recommendation interaction
             if self.repository is not None:
