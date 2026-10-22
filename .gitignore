@@ -10,8 +10,6 @@ __pycache__/
 .pytest_cache/
 
 # Environment variables
-.env
-.env.*
 !.env.example
 
 # Data
@@ -36,3 +34,4 @@ Thumbs.db
 pyrightconfig.json
 .gitignore
 branch_structure.json
+config.bat

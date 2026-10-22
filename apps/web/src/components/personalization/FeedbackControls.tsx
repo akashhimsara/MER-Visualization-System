@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { FeedbackResponse, FeedbackType } from "../../types/personalization";
 
 interface FeedbackControlsProps {
@@ -21,6 +21,14 @@ export const FeedbackControls: React.FC<FeedbackControlsProps> = ({
   disabled = false,
 }) => {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [submittedRating, setSubmittedRating] = useState<number | null>(null);
+
+  // Clear submitted rating if recommendation resets or changes
+  useEffect(() => {
+    if (!feedbackSubmittedForCurrentRec) {
+      setSubmittedRating(null);
+    }
+  }, [feedbackSubmittedForCurrentRec, recommendedPresetId]);
 
   const canSubmit =
     hasActiveRecommendation &&
@@ -145,33 +153,46 @@ export const FeedbackControls: React.FC<FeedbackControlsProps> = ({
             Rating:
           </span>
           {[1, 2, 3, 4, 5].map((star) => {
-            const isHovered = hoverRating !== null && star <= hoverRating;
+            const isFilled =
+              hoverRating !== null
+                ? star <= hoverRating
+                : submittedRating !== null && star <= submittedRating;
             return (
               <button
                 key={star}
+                id={`btn-rate-${star}`}
                 type="button"
                 disabled={!canSubmit}
                 onMouseEnter={() => setHoverRating(star)}
                 onMouseLeave={() => setHoverRating(null)}
-                onClick={() => onSubmitFeedback("rating", star)}
+                onClick={() => {
+                  setSubmittedRating(star);
+                  onSubmitFeedback("rating", star);
+                }}
                 title={`Rate ${star} / 5 (${((star - 3) / 2 > 0 ? "+" : "") + ((star - 3) / 2).toFixed(1)} reward)`}
                 style={{
                   background: "transparent",
                   border: "none",
                   fontSize: "1.2rem",
-                  cursor: canSubmit ? "pointer" : "not-allowed",
-                  color: isHovered ? "#fbbf24" : "#64748b",
+                  cursor: canSubmit ? "pointer" : "default",
+                  color: isFilled ? "#fbbf24" : "#64748b",
                   padding: "0 0.1rem",
-                  transition: "color 0.1s ease, transform 0.1s ease",
-                  transform: isHovered ? "scale(1.2)" : "scale(1)",
+                  transition: "color 0.15s ease, transform 0.1s ease",
+                  transform: hoverRating !== null && star <= hoverRating ? "scale(1.2)" : "scale(1)",
                 }}
               >
                 ★
               </button>
             );
           })}
+          {submittedRating !== null && (
+            <span style={{ fontSize: "0.75rem", color: "#fbbf24", fontWeight: 700, marginLeft: "0.3rem" }}>
+              ({submittedRating}/5 ★)
+            </span>
+          )}
         </div>
       </div>
+
 
       {/* Outcome Status / Response Card */}
       {lastFeedbackResponse && (

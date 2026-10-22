@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from components.personalization.presets import MAX_IDENTIFIER_LENGTH
 from components.personalization.runtime import PersonalizationRuntimeService
@@ -93,6 +93,22 @@ class RecommendRequest(BaseModel):
             }
         ],
     )
+    candidate_visual_ids: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Optional Top-K emotion-safe visual candidate IDs from Member 2. "
+            "When provided, Member 4 personalizes strictly within this candidate set."
+        ),
+        examples=[["orb", "liquid-metal", "cyber-grid"]],
+    )
+    default_visual_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Member 2 default/fallback visual ID for cold-start. "
+            "Must be present in candidate_visual_ids when candidate_visual_ids is provided."
+        ),
+        examples=["orb"],
+    )
 
     @field_validator("user_id")
     @classmethod
@@ -116,6 +132,58 @@ class RecommendRequest(BaseModel):
                 if len(clean_sess) > MAX_IDENTIFIER_LENGTH:
                     raise ValueError(f"session_id exceeds maximum length of {MAX_IDENTIFIER_LENGTH} characters.")
         return v
+
+    @field_validator("candidate_visual_ids")
+    @classmethod
+    def validate_candidate_visual_ids(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is not None:
+            if len(v) == 0:
+                raise ValueError("candidate_visual_ids cannot be an empty list.")
+            normalized: list[str] = []
+            seen = set()
+            for item in v:
+                if item is None:
+                    raise ValueError("candidate_visual_ids cannot contain null values.")
+                clean = str(item).strip()
+                if not clean:
+                    raise ValueError("candidate_visual_ids cannot contain empty or blank strings.")
+                if len(clean) > MAX_IDENTIFIER_LENGTH:
+                    raise ValueError(
+                        f"candidate visual_id '{clean}' exceeds maximum length of {MAX_IDENTIFIER_LENGTH} characters."
+                    )
+                if clean not in seen:
+                    seen.add(clean)
+                    normalized.append(clean)
+            return normalized
+        return v
+
+    @field_validator("default_visual_id")
+    @classmethod
+    def validate_default_visual_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = str(v).strip()
+            if not clean:
+                raise ValueError("default_visual_id cannot be empty or blank.")
+            if len(clean) > MAX_IDENTIFIER_LENGTH:
+                raise ValueError(
+                    f"default_visual_id exceeds maximum length of {MAX_IDENTIFIER_LENGTH} characters."
+                )
+            return clean
+        return v
+
+    @model_validator(mode="after")
+    def validate_candidate_consistency(self) -> "RecommendRequest":
+        if self.candidate_visual_ids is not None:
+            if not self.default_visual_id:
+                raise ValueError("default_visual_id must be provided when candidate_visual_ids is specified.")
+            if self.default_visual_id not in self.candidate_visual_ids:
+                raise ValueError(
+                    f"default_visual_id '{self.default_visual_id}' must exist inside candidate_visual_ids."
+                )
+        else:
+            if self.default_visual_id is not None:
+                raise ValueError("default_visual_id cannot be specified without candidate_visual_ids.")
+        return self
 
 
 class FeedbackRequest(BaseModel):
@@ -256,7 +324,12 @@ def recommend_preset(
         )
 
     try:
-        rec_event = service.recommend(user_id=user_id, tier3_event=request.tier3_event)
+        rec_event = service.recommend(
+            user_id=user_id,
+            tier3_event=request.tier3_event,
+            candidate_visual_ids=request.candidate_visual_ids,
+            default_visual_id=request.default_visual_id,
+        )
         return rec_event
     except ValueError as val_err:
         raise HTTPException(
@@ -381,3 +454,74 @@ def get_user_personalization_state(
         )
 
     return state
+
+
+class DemoResetRequest(BaseModel):
+    user_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of demo user IDs to reset. If omitted, resets default viva demo users.",
+        examples=[["demo-integration-user-a", "demo-integration-user-b"]],
+    )
+
+
+class DemoResetResponse(BaseModel):
+    status: str = Field(..., examples=["success"])
+    message: str = Field(..., examples=["Successfully reset demo users to cold start baseline."])
+    reset_users: list[str] = Field(..., examples=[["demo-integration-user-a", "demo-integration-user-b"]])
+
+
+DEFAULT_DEMO_USERS: list[str] = ["demo-integration-user-a", "demo-integration-user-b"]
+ALLOWED_RESET_PREFIX: str = "demo-"
+
+
+@router.post(
+    "/demo/reset",
+    summary="Reset Demo Integration Users (Cold Start Baseline)",
+    response_model=DemoResetResponse,
+    response_description="Confirmation of reset demo user IDs and cold-start restoration",
+)
+def reset_demo_users_endpoint(
+    request: Optional[DemoResetRequest] = None,
+    service: PersonalizationRuntimeService = Depends(get_personalization_service),
+) -> DemoResetResponse:
+    """
+    Reset demo integration user profiles back to 0 updates (cold start baseline).
+
+    Clears in-memory adaptive LinUCB engines and deletes persisted database records
+    across all 5 personalization tables.
+    Restricted strictly to demo users (IDs starting with 'demo-').
+    """
+    raw_targets = request.user_ids if (request and request.user_ids is not None) else DEFAULT_DEMO_USERS
+    target_users = [str(u).strip() for u in raw_targets if str(u).strip()]
+    if not target_users:
+        target_users = DEFAULT_DEMO_USERS
+
+    for uid in target_users:
+        if not uid.startswith(ALLOWED_RESET_PREFIX):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Safety restriction: Only demo users starting with '{ALLOWED_RESET_PREFIX}' can be reset.",
+            )
+        if len(uid) > MAX_IDENTIFIER_LENGTH:
+            raise HTTPException(
+                status_code=STATUS_UNPROCESSABLE,
+                detail=f"user_id exceeds maximum length of {MAX_IDENTIFIER_LENGTH} characters.",
+            )
+
+    reset_list: list[str] = []
+    for uid in target_users:
+        try:
+            service.reset_user(uid)
+            reset_list.append(uid)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to reset user '{uid}': {exc}",
+            )
+
+    return DemoResetResponse(
+        status="success",
+        message=f"Successfully reset {len(reset_list)} demo user(s) to cold start baseline.",
+        reset_users=reset_list,
+    )
+
