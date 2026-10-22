@@ -58,3 +58,17 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* Badges & Code Chips dark tech styling */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+  display: inline-block;
+  vertical-align: middle;
+}

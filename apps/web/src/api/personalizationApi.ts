@@ -82,17 +82,27 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 
 /**
  * Request next visual preset recommendation from real LinUCB / Cold-Start backend.
+ * Optionally passes Member 2 candidate_visual_ids and default_visual_id.
  */
 export async function getRecommendation(
   userId: string,
-  tier3Event: MERTier3Event
+  tier3Event: MERTier3Event,
+  candidateVisualIds?: string[],
+  defaultVisualId?: string
 ): Promise<RecommendationResponse> {
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    tier3_event: tier3Event,
+  };
+  if (candidateVisualIds && candidateVisualIds.length > 0) {
+    payload.candidate_visual_ids = candidateVisualIds;
+  }
+  if (defaultVisualId) {
+    payload.default_visual_id = defaultVisualId;
+  }
   return requestJson<RecommendationResponse>("/api/personalization/recommend", {
     method: "POST",
-    body: JSON.stringify({
-      user_id: userId,
-      tier3_event: tier3Event,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -148,3 +158,19 @@ export async function checkBackendHealth(): Promise<{ online: boolean; message: 
     };
   }
 }
+
+/**
+ * Reset demo integration users back to cold-start baseline (clears database records & runtime cache).
+ */
+export async function resetDemoUsers(
+  userIds?: string[]
+): Promise<{ status: string; message: string; reset_users: string[] }> {
+  return requestJson<{ status: string; message: string; reset_users: string[] }>(
+    "/api/personalization/demo/reset",
+    {
+      method: "POST",
+      body: JSON.stringify(userIds && userIds.length > 0 ? { user_ids: userIds } : {}),
+    }
+  );
+}
+

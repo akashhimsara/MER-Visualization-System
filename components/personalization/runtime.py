@@ -321,3 +321,21 @@ class PersonalizationRuntimeService:
                 except Exception as exc:
                     logger.error("Database error while persisting user '%s': %s", clean_user_id, exc)
                     raise RuntimeError(f"Database persistence error: {exc}") from exc
+
+    def reset_user(self, user_id: str) -> None:
+        """
+        Reset user profile back to cold-start baseline by removing in-memory engine
+        and deleting persisted records from PostgreSQL.
+        """
+        clean_user_id = _validate_identifier("user_id", user_id)
+        user_lock = self._get_user_lock(clean_user_id)
+        with user_lock:
+            with self._global_lock:
+                self._engines.pop(clean_user_id, None)
+            if self.repository is not None:
+                try:
+                    self.repository.delete_user(clean_user_id)
+                except Exception as exc:
+                    logger.error("Database error while resetting user '%s': %s", clean_user_id, exc)
+                    raise RuntimeError(f"Database reset error: {exc}") from exc
+

@@ -44,21 +44,47 @@ export const UserLearningPanel: React.FC<UserLearningPanelProps> = ({
         </div>
 
         <button
+          id="btn-refresh-user-state"
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
           style={{
-            padding: "0.35rem 0.75rem",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            padding: "0.4rem 0.85rem",
             borderRadius: "0.375rem",
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            color: "#94a3b8",
+            backgroundColor: isLoading ? "rgba(56, 189, 248, 0.2)" : "rgba(15, 23, 42, 0.8)",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            color: "#38bdf8",
             fontSize: "0.78rem",
+            fontWeight: 600,
             cursor: isLoading ? "not-allowed" : "pointer",
             transition: "all 0.15s ease",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
           }}
         >
-          {isLoading ? "Refreshing..." : "↻ Refresh State"}
+          {isLoading ? (
+            <>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: "10px",
+                  height: "10px",
+                  border: "2px solid #38bdf8",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+              <span>Querying PostgreSQL...</span>
+            </>
+          ) : (
+            <>
+              <span>↻</span>
+              <span>Refresh State</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -281,7 +307,7 @@ export const UserLearningPanel: React.FC<UserLearningPanelProps> = ({
                           justifyContent: "space-between",
                         }}
                       >
-                        <span>{meta?.name.split(" ")[0] || stat.preset_id}</span>
+                        <span>{meta?.name || stat.preset_id}</span>
                         <span style={{ fontFamily: "monospace" }}>
                           Recs: {stat.recommendation_count}
                         </span>

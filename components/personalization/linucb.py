@@ -138,12 +138,14 @@ class LinUCB:
         """
         if isinstance(context_vector, dict) and "values" in context_vector:
             raw = context_vector["values"]
-        elif hasattr(context_vector, "to_list") and callable(context_vector.to_list):
-            raw = context_vector.to_list()
+        elif callable(getattr(context_vector, "to_list", None)):
+            raw = getattr(context_vector, "to_list")()
         elif hasattr(context_vector, "vector"):
-            raw = context_vector.vector
+            raw = getattr(context_vector, "vector")
         elif isinstance(context_vector, (list, tuple, np.ndarray)):
             raw = context_vector
+
+
         else:
             raise ValueError(
                 f"Unsupported context vector type: {type(context_vector).__name__}"
@@ -221,6 +223,9 @@ class LinUCB:
                 best_score = score
                 best_arm = arm
 
+        if best_arm is None:
+            best_arm = target_arms[0]
+
         return LinUCBSelection(
             selected_arm=best_arm,
             selected_score=best_score,
@@ -228,6 +233,7 @@ class LinUCB:
             exploitation_scores=exploitation_scores,
             exploration_scores=exploration_scores,
         )
+
 
     def update(
         self,

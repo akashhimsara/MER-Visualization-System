@@ -275,15 +275,23 @@ class AdaptivePersonalizationEngine:
         ctx: ContextVector = build_context_vector(tier3_event)
 
         # 2. Decide selection policy based on learning state & integration mode
+        preset_id: str
+        strategy: str
+        score: Optional[float]
+
         if candidate_visual_ids is not None:
             # Final Member 2 Integration Mode:
             if not self.is_linucb_active:
                 # Cold-start policy: Member 2 default candidate
+                if clean_default_visual_id is None:
+                    raise ValueError("default_visual_id must be provided when candidate_visual_ids is specified.")
                 preset_id = clean_default_visual_id
                 strategy = "cold_start"
                 score = None
             else:
                 # LinUCB ranking strictly within candidate_visual_ids
+                if normalized_candidates is None:
+                    raise ValueError("candidate_visual_ids cannot be empty.")
                 selection: LinUCBSelection = self.model.select_arm(ctx, eligible_arms=normalized_candidates)
                 preset_id = selection.selected_arm
                 strategy = "linucb"
@@ -301,6 +309,7 @@ class AdaptivePersonalizationEngine:
                 preset_id = selection.selected_arm
                 strategy = "linucb"
                 score = float(selection.selected_score)
+
 
         # 3. Build Contract v1.1 Recommendation event
         rec_event = build_recommendation_event(
@@ -359,22 +368,27 @@ class AdaptivePersonalizationEngine:
         5. If reward is numerical: updates the LinUCB model, marks interaction as processed,
            increments successful_update_count, and updates user state metrics.
         """
-        feedback_id = feedback_event.get("feedback_id")
-        session_id = feedback_event.get("session_id")
-        preset_id = feedback_event.get("preset_id")
+        raw_feedback_id = feedback_event.get("feedback_id")
+        raw_session_id = feedback_event.get("session_id")
+        raw_preset_id = feedback_event.get("preset_id")
 
-        if feedback_id and len(str(feedback_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        feedback_id: Optional[str] = str(raw_feedback_id).strip() if raw_feedback_id is not None else None
+        session_id: str = str(raw_session_id).strip() if raw_session_id is not None else ""
+        preset_id: str = str(raw_preset_id).strip() if raw_preset_id is not None else ""
+
+        if feedback_id and len(feedback_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"feedback_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
-        if session_id and len(str(session_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        if len(session_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
-        if preset_id and len(str(preset_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        if len(preset_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
+
 
         # 1. Duplicate feedback ID check
         if feedback_id and feedback_id in self.processed_feedback_ids:

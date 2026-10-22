@@ -194,14 +194,14 @@ export function App() {
             <span
               style={{
                 fontSize: '0.65rem',
-                backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                color: '#fbbf24',
+                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                color: '#34d399',
                 padding: '0.1rem 0.35rem',
                 borderRadius: '0.25rem',
                 marginLeft: '0.25rem',
               }}
             >
-              VIVA
+              LIVE
             </span>
           </button>
 

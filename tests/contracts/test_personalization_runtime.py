@@ -1168,3 +1168,70 @@ def test_normal_contract_v1_1_flows_remain_unchanged(client):
     assert rec_res_next.status_code == 200
     assert rec_res_next.json()["strategy"] == "linucb"
     assert list(REC_VALIDATOR.iter_errors(rec_res_next.json())) == []
+
+
+def test_demo_reset_endpoint_success(client):
+    """
+    Test that POST /api/personalization/demo/reset cleanly resets demo user
+    from learned LinUCB state back to Cold Start baseline.
+    """
+    demo_user = "demo-integration-user-a"
+    session_id = "session-reset-test"
+
+    # 1. Recommend & Feedback to transition into LinUCB
+    t3 = make_tier3(session_id=session_id, seq=1, time_ms=1000)
+    rec_res = client.post(
+        "/api/personalization/recommend",
+        json={"user_id": demo_user, "tier3_event": t3},
+    )
+    assert rec_res.status_code == 200
+    rec_preset = rec_res.json()["recommended_preset_id"]
+
+    fb = make_feedback(session_id=session_id, fb_id="fb-reset-1", preset_id=rec_preset, fb_type="like")
+    fb_res = client.post(
+        "/api/personalization/feedback",
+        json={"user_id": demo_user, "feedback_event": fb},
+    )
+    assert fb_res.status_code == 200
+
+    # Verify user state has learned updates
+    state_res = client.get(f"/api/personalization/users/{demo_user}/state")
+    assert state_res.status_code == 200
+    assert state_res.json()["successful_learning_updates"] >= 1
+
+    # 2. Call Reset Demo Users endpoint
+    reset_res = client.post(
+        "/api/personalization/demo/reset",
+        json={"user_ids": [demo_user]},
+    )
+    assert reset_res.status_code == 200
+    reset_data = reset_res.json()
+    assert reset_data["status"] == "success"
+    assert demo_user in reset_data["reset_users"]
+
+    # 3. Verify user state is reset (404 Not Found since records are deleted)
+    fresh_state = client.get(f"/api/personalization/users/{demo_user}/state")
+    assert fresh_state.status_code == 404
+
+    # 4. Next recommendation returns Cold Start
+    fresh_rec = client.post(
+        "/api/personalization/recommend",
+        json={"user_id": demo_user, "tier3_event": t3},
+    )
+    assert fresh_rec.status_code == 200
+    assert fresh_rec.json()["strategy"] == "cold_start"
+
+
+def test_demo_reset_safety_restriction(client):
+    """
+    Test that POST /api/personalization/demo/reset rejects non-demo user IDs
+    with HTTP 400 to prevent accidental deletion of production/real user profiles.
+    """
+    # Non-demo user
+    res = client.post(
+        "/api/personalization/demo/reset",
+        json={"user_ids": ["prod-user-999"]},
+    )
+    assert res.status_code == 400
+    assert "Safety restriction" in res.text
+

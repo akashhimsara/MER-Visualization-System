@@ -454,3 +454,74 @@ def get_user_personalization_state(
         )
 
     return state
+
+
+class DemoResetRequest(BaseModel):
+    user_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of demo user IDs to reset. If omitted, resets default viva demo users.",
+        examples=[["demo-integration-user-a", "demo-integration-user-b"]],
+    )
+
+
+class DemoResetResponse(BaseModel):
+    status: str = Field(..., examples=["success"])
+    message: str = Field(..., examples=["Successfully reset demo users to cold start baseline."])
+    reset_users: list[str] = Field(..., examples=[["demo-integration-user-a", "demo-integration-user-b"]])
+
+
+DEFAULT_DEMO_USERS: list[str] = ["demo-integration-user-a", "demo-integration-user-b"]
+ALLOWED_RESET_PREFIX: str = "demo-"
+
+
+@router.post(
+    "/demo/reset",
+    summary="Reset Demo Integration Users (Cold Start Baseline)",
+    response_model=DemoResetResponse,
+    response_description="Confirmation of reset demo user IDs and cold-start restoration",
+)
+def reset_demo_users_endpoint(
+    request: Optional[DemoResetRequest] = None,
+    service: PersonalizationRuntimeService = Depends(get_personalization_service),
+) -> DemoResetResponse:
+    """
+    Reset demo integration user profiles back to 0 updates (cold start baseline).
+
+    Clears in-memory adaptive LinUCB engines and deletes persisted database records
+    across all 5 personalization tables.
+    Restricted strictly to demo users (IDs starting with 'demo-').
+    """
+    raw_targets = request.user_ids if (request and request.user_ids is not None) else DEFAULT_DEMO_USERS
+    target_users = [str(u).strip() for u in raw_targets if str(u).strip()]
+    if not target_users:
+        target_users = DEFAULT_DEMO_USERS
+
+    for uid in target_users:
+        if not uid.startswith(ALLOWED_RESET_PREFIX):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Safety restriction: Only demo users starting with '{ALLOWED_RESET_PREFIX}' can be reset.",
+            )
+        if len(uid) > MAX_IDENTIFIER_LENGTH:
+            raise HTTPException(
+                status_code=STATUS_UNPROCESSABLE,
+                detail=f"user_id exceeds maximum length of {MAX_IDENTIFIER_LENGTH} characters.",
+            )
+
+    reset_list: list[str] = []
+    for uid in target_users:
+        try:
+            service.reset_user(uid)
+            reset_list.append(uid)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to reset user '{uid}': {exc}",
+            )
+
+    return DemoResetResponse(
+        status="success",
+        message=f"Successfully reset {len(reset_list)} demo user(s) to cold start baseline.",
+        reset_users=reset_list,
+    )
+
