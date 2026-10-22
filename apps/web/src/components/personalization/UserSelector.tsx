@@ -5,6 +5,8 @@ interface UserSelectorProps {
   onSelectUser: (userId: string) => void;
   sessionId: string;
   disabled?: boolean;
+  onResetDemoUsers?: () => void;
+  isResetting?: boolean;
 }
 
 export const UserSelector: React.FC<UserSelectorProps> = ({
@@ -12,22 +14,26 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
   onSelectUser,
   sessionId,
   disabled = false,
+  onResetDemoUsers,
+  isResetting = false,
 }) => {
+
   const users = [
     {
-      id: "demo-user-a",
+      id: "demo-integration-user-a",
       displayName: "User A",
-      tagline: "Prefers Energetic & High-Contrast Visuals",
+      tagline: "Candidate-Aware Profile A",
       avatarBg: "linear-gradient(135deg, #f59e0b, #ec4899)",
       badgeColor: "#f59e0b",
     },
     {
-      id: "demo-user-b",
+      id: "demo-integration-user-b",
       displayName: "User B",
-      tagline: "Prefers Calm & Minimalistic Ambient Visuals",
+      tagline: "Candidate-Aware Profile B",
       avatarBg: "linear-gradient(135deg, #06b6d4, #10b981)",
       badgeColor: "#10b981",
     },
+
   ];
 
   return (
@@ -101,8 +107,44 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
               </button>
             );
           })}
+          {onResetDemoUsers && (
+            <button
+              type="button"
+              disabled={disabled || isResetting}
+              onClick={onResetDemoUsers}
+              title="Reset both demo user profiles to Cold Start baseline (0 learning updates)"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "0.5rem",
+                backgroundColor: "rgba(239, 68, 68, 0.12)",
+                border: "1px solid rgba(239, 68, 68, 0.35)",
+                color: "#fca5a5",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: disabled || isResetting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                marginLeft: "0.5rem",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  display: "inline-block",
+                  transform: isResetting ? "rotate(180deg)" : "none",
+                  transition: "transform 0.5s ease",
+                }}
+              >
+                ↺
+              </span>
+              <span>{isResetting ? "Resetting Demo..." : "Reset Demo Users"}</span>
+            </button>
+          )}
         </div>
       </div>
+
 
       {/* Session ID Indicator */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
