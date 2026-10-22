@@ -105,6 +105,32 @@ class LinUCB:
             for arm in self.arms
         }
 
+    def ensure_arm(self, arm: str) -> None:
+        """
+        Dynamically ensure a visual/preset arm exists in the LinUCB model.
+        If the arm is new, initializes A_a = I_d and b_a = 0_d.
+        If the arm already exists, preserves existing ridge regression state (A_a, b_a)
+        and historical learning exactly.
+        """
+        if arm is None:
+            raise ValueError("arm cannot be None.")
+        clean_arm = str(arm).strip()
+        if not clean_arm:
+            raise ValueError("arm cannot be empty or whitespace-only.")
+        if clean_arm not in self.A:
+            self.A[clean_arm] = np.identity(self.context_dimension, dtype=np.float64)
+            self.b[clean_arm] = np.zeros(self.context_dimension, dtype=np.float64)
+            if clean_arm not in self.arms:
+                self.arms.append(clean_arm)
+
+    def ensure_arms(self, arms: Sequence[str]) -> None:
+        """
+        Ensure multiple visual/preset arms exist in the LinUCB model,
+        preserving any existing learned arms.
+        """
+        for arm in arms:
+            self.ensure_arm(arm)
+
     def _extract_vector(self, context_vector: Any) -> np.ndarray:
         """
         Validate and convert context input into a 1D float64 NumPy array.
@@ -112,12 +138,14 @@ class LinUCB:
         """
         if isinstance(context_vector, dict) and "values" in context_vector:
             raw = context_vector["values"]
-        elif hasattr(context_vector, "to_list") and callable(context_vector.to_list):
-            raw = context_vector.to_list()
+        elif callable(getattr(context_vector, "to_list", None)):
+            raw = getattr(context_vector, "to_list")()
         elif hasattr(context_vector, "vector"):
-            raw = context_vector.vector
+            raw = getattr(context_vector, "vector")
         elif isinstance(context_vector, (list, tuple, np.ndarray)):
             raw = context_vector
+
+
         else:
             raise ValueError(
                 f"Unsupported context vector type: {type(context_vector).__name__}"
@@ -131,11 +159,36 @@ class LinUCB:
             )
         return arr
 
-    def select_arm(self, context_vector: Any) -> LinUCBSelection:
+    def select_arm(
+        self,
+        context_vector: Any,
+        eligible_arms: Optional[Sequence[str]] = None,
+    ) -> LinUCBSelection:
         """
-        Score all candidate arms and select the one with the maximum LinUCB score.
+        Score candidate arms and select the one with the maximum LinUCB score.
+        If eligible_arms is provided, scores ONLY arms within eligible_arms.
+        If eligible_arms is None, scores all initialized arms in self.arms.
+
         Tie-breaking: deterministic, first arm among equal maximum scores wins.
         """
+        if eligible_arms is not None:
+            if len(eligible_arms) == 0:
+                raise ValueError("eligible_arms cannot be empty.")
+            # Normalize and validate candidate arms
+            candidate_list: List[str] = []
+            for arm in eligible_arms:
+                if arm is None:
+                    raise ValueError("eligible arm cannot be None.")
+                clean_arm = str(arm).strip()
+                if not clean_arm:
+                    raise ValueError("eligible arm cannot be empty or whitespace-only.")
+                if clean_arm not in candidate_list:
+                    candidate_list.append(clean_arm)
+            self.ensure_arms(candidate_list)
+            target_arms = candidate_list
+        else:
+            target_arms = self.arms
+
         x = self._extract_vector(context_vector)
 
         arm_scores: Dict[str, float] = {}
@@ -145,7 +198,7 @@ class LinUCB:
         best_arm: Optional[str] = None
         best_score: float = -float("inf")
 
-        for arm in self.arms:
+        for arm in target_arms:
             A_a = self.A[arm]
             b_a = self.b[arm]
 
@@ -170,6 +223,9 @@ class LinUCB:
                 best_score = score
                 best_arm = arm
 
+        if best_arm is None:
+            best_arm = target_arms[0]
+
         return LinUCBSelection(
             selected_arm=best_arm,
             selected_score=best_score,
@@ -177,6 +233,7 @@ class LinUCB:
             exploitation_scores=exploitation_scores,
             exploration_scores=exploration_scores,
         )
+
 
     def update(
         self,

@@ -18,6 +18,13 @@ interface DemoPreset {
 
 const DEMO_PRESETS: DemoPreset[] = [
   {
+    label: "Happy / Radiant (Baseline)",
+    tag: "Happy",
+    v: 0.7,
+    a: 0.4,
+    accent: "#ec4899",
+  },
+  {
     label: "High Positive / High Arousal",
     tag: "Energetic",
     v: 0.8,
@@ -25,24 +32,17 @@ const DEMO_PRESETS: DemoPreset[] = [
     accent: "#f59e0b",
   },
   {
-    label: "Calm Positive",
-    tag: "Serene",
+    label: "Calm Ambient",
+    tag: "Calm",
     v: 0.6,
-    a: -0.6,
+    a: -0.5,
     accent: "#10b981",
   },
   {
-    label: "Tense Negative",
-    tag: "Agitated",
-    v: -0.7,
-    a: 0.7,
-    accent: "#f43f5e",
-  },
-  {
-    label: "Calm Negative",
-    tag: "Subdued",
+    label: "Sad / Subdued",
+    tag: "Sad",
     v: -0.6,
-    a: -0.5,
+    a: -0.4,
     accent: "#6366f1",
   },
 ];

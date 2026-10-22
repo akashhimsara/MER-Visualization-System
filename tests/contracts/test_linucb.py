@@ -323,3 +323,99 @@ def test_integration_with_context_vector_builder():
     assert model.b[selection.selected_arm][0] == 0.75
     assert model.b[selection.selected_arm][1] == 0.60
     assert model.b[selection.selected_arm][2] == 1.0
+
+
+def test_linucb_ensure_arm_and_ensure_arms():
+    """Verify ensure_arm and ensure_arms dynamically register new arms with A=I, b=0."""
+    model = LinUCB(arms=["arm_1", "arm_2"], context_dimension=3)
+    assert model.arms == ["arm_1", "arm_2"]
+
+    model.ensure_arm("arm_3")
+    assert "arm_3" in model.arms
+    assert "arm_3" in model.A
+    assert "arm_3" in model.b
+    np.testing.assert_array_equal(model.A["arm_3"], np.identity(3))
+    np.testing.assert_array_equal(model.b["arm_3"], np.zeros(3))
+
+    model.ensure_arms(["arm_4", "arm_5"])
+    assert "arm_4" in model.arms and "arm_5" in model.arms
+    np.testing.assert_array_equal(model.A["arm_4"], np.identity(3))
+    np.testing.assert_array_equal(model.b["arm_5"], np.zeros(3))
+
+
+def test_linucb_ensure_arm_preserves_learned_parameters():
+    """Verify calling ensure_arm or ensure_arms on already-learned arms preserves A and b exactly."""
+    model = LinUCB(arms=["orb", "liquid-metal"], context_dimension=3)
+    ctx = [0.8, 0.6, 1.0]
+
+    # Train "orb"
+    model.update("orb", ctx, reward=1.0)
+    orig_A = copy.deepcopy(model.A["orb"])
+    orig_b = copy.deepcopy(model.b["orb"])
+
+    # Ensure "orb" and a new arm "cyber-grid"
+    model.ensure_arm("orb")
+    model.ensure_arms(["orb", "cyber-grid"])
+
+    # Verify "orb" is 100% preserved
+    np.testing.assert_array_equal(model.A["orb"], orig_A)
+    np.testing.assert_array_equal(model.b["orb"], orig_b)
+
+    # Verify "cyber-grid" is fresh
+    np.testing.assert_array_equal(model.A["cyber-grid"], np.identity(3))
+    np.testing.assert_array_equal(model.b["cyber-grid"], np.zeros(3))
+
+
+def test_linucb_eligible_arms_filtering():
+    """Verify select_arm scores ONLY eligible_arms when provided and never outside."""
+    model = LinUCB(arms=["arm_1", "arm_2", "arm_3"], context_dimension=3)
+    ctx = [0.5, 0.5, 1.0]
+
+    # Eligible subset: arm_2 and arm_3
+    selection = model.select_arm(ctx, eligible_arms=["arm_2", "arm_3"])
+    assert selection.selected_arm in ["arm_2", "arm_3"]
+    assert set(selection.arm_scores.keys()) == {"arm_2", "arm_3"}
+    assert "arm_1" not in selection.arm_scores
+
+
+def test_linucb_eligible_arms_never_selects_ineligible_even_with_high_score():
+    """Verify a historical arm with high learned reward is NEVER chosen if not eligible."""
+    model = LinUCB(arms=["favorite_arm", "candidate_1", "candidate_2"], context_dimension=3)
+    ctx = [0.5, 0.5, 1.0]
+
+    # Train favorite_arm heavily
+    for _ in range(10):
+        model.update("favorite_arm", ctx, reward=1.0)
+
+    # In full selection, favorite_arm wins by a landslide
+    full_sel = model.select_arm(ctx)
+    assert full_sel.selected_arm == "favorite_arm"
+
+    # In candidate-constrained selection, favorite_arm MUST NOT be chosen
+    constrained_sel = model.select_arm(ctx, eligible_arms=["candidate_1", "candidate_2"])
+    assert constrained_sel.selected_arm in ["candidate_1", "candidate_2"]
+    assert constrained_sel.selected_arm != "favorite_arm"
+    assert "favorite_arm" not in constrained_sel.arm_scores
+
+
+def test_linucb_eligible_arms_validation_and_normalization():
+    """Verify eligible_arms validates empty, invalid, and duplicate inputs."""
+    model = LinUCB(arms=["arm_1", "arm_2"], context_dimension=3)
+    ctx = [0.5, 0.5, 1.0]
+
+    # Empty list
+    with pytest.raises(ValueError, match="cannot be empty"):
+        model.select_arm(ctx, eligible_arms=[])
+
+    # Blank arm
+    with pytest.raises(ValueError, match="empty or whitespace-only"):
+        model.select_arm(ctx, eligible_arms=["arm_1", "   "])
+
+    # None arm
+    with pytest.raises(ValueError, match="cannot be None"):
+        model.select_arm(ctx, eligible_arms=["arm_1", None])
+
+    # Duplicates safely normalized
+    sel = model.select_arm(ctx, eligible_arms=["arm_2", "arm_2", "arm_1"])
+    assert len(sel.arm_scores) == 2
+    assert set(sel.arm_scores.keys()) == {"arm_1", "arm_2"}

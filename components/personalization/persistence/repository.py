@@ -453,3 +453,15 @@ class PersonalizationRepository:
             if user_id:
                 query = query.filter_by(user_id=user_id)
             return {row[0] for row in query.all()}
+
+    def delete_user(self, user_id: str) -> None:
+        """Completely remove all persisted personalization records for a given user."""
+        clean_user_id = str(user_id).strip()
+        with self._get_session() as session:
+            with session.begin():
+                session.query(PersonalizationPresetStatsModel).filter_by(user_id=clean_user_id).delete()
+                session.query(PersonalizationLinUCBStateModel).filter_by(user_id=clean_user_id).delete()
+                session.query(PersonalizationInteractionModel).filter_by(user_id=clean_user_id).delete()
+                session.query(PersonalizationProcessedFeedbackModel).filter_by(user_id=clean_user_id).delete()
+                session.query(PersonalizationUserStateModel).filter_by(user_id=clean_user_id).delete()
+

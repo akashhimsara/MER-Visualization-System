@@ -7,6 +7,8 @@ export interface UserRecommendationSnapshot {
   valence: number;
   arousal: number;
   strategy?: string;
+  candidates?: string[];
+  default_visual_id?: string;
 }
 
 interface PersonalizationComparisonProps {
@@ -32,9 +34,11 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
   const metaA = prefA ? PRESET_REGISTRY[prefA] : null;
   const metaB = prefB ? PRESET_REGISTRY[prefB] : null;
 
-  // 1. Same-context recommendation divergence:
-  // When User A and User B have both received recommendations using the same simulated emotion context,
-  // compare their actual backend-returned recommended_preset_id values.
+  // Normalize candidate set for deterministic membership comparison
+  const normalizeCandidates = (c?: string[]) =>
+    c ? [...c].sort().join(",") : "";
+
+  // 1. Same emotion context tolerance check (|Δ| < 0.05)
   const isSameEmotionContext = Boolean(
     recA &&
     recB &&
@@ -42,8 +46,18 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
     Math.abs(recA.arousal - recB.arousal) < 0.05
   );
 
-  const hasRecommendationDivergence = Boolean(
-    isSameEmotionContext &&
+  // 2. Same candidate set verification
+  const isSameCandidates = Boolean(
+    recA &&
+    recB &&
+    recA.candidates &&
+    recB.candidates &&
+    recA.candidates.length > 0 &&
+    normalizeCandidates(recA.candidates) === normalizeCandidates(recB.candidates)
+  );
+
+  // 3. Different recommended preset check
+  const isDifferentRecommendation = Boolean(
     recA &&
     recB &&
     recA.recommended_preset_id &&
@@ -51,8 +65,12 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
     recA.recommended_preset_id !== recB.recommended_preset_id
   );
 
-  // 2. Preference divergence learned:
-  // When persisted historical preferred presets differ, but same-context recommendation divergence hasn't been triggered
+  // Strongest proof: ALL 3 conditions satisfied
+  const hasRecommendationDivergence = Boolean(
+    isSameEmotionContext && isSameCandidates && isDifferentRecommendation
+  );
+
+  // Weaker label: Historical preference divergence learned
   const hasPreferenceDivergence = Boolean(
     !hasRecommendationDivergence &&
     stateA &&
@@ -69,7 +87,7 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
   let badgeBorder = "rgba(56, 189, 248, 0.3)";
 
   if (hasRecommendationDivergence) {
-    badgeLabel = "RECOMMENDATION DIVERGENCE PROVEN";
+    badgeLabel = "PERSONALIZED RECOMMENDATION DIVERGENCE PROVEN";
     badgeColor = "#34d399";
     badgeBg = "rgba(16, 185, 129, 0.2)";
     badgeBorder = "rgba(16, 185, 129, 0.4)";
@@ -94,21 +112,22 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc" }}>
-              Personalization Divergence (Viva Demonstration)
+              Personalization Divergence (Interactive Demonstration)
             </h3>
             <span
               style={{
                 fontSize: "0.7rem",
                 fontWeight: 700,
-                padding: "0.2rem 0.5rem",
+                padding: "0.2rem 0.55rem",
                 borderRadius: "0.375rem",
                 backgroundColor: badgeBg,
                 color: badgeColor,
                 border: `1px solid ${badgeBorder}`,
+                letterSpacing: "0.02em",
               }}
             >
               {badgeLabel}
@@ -116,10 +135,10 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
           </div>
           <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.8rem", color: "#94a3b8" }}>
             {hasRecommendationDivergence
-              ? `Proven: Same emotion context (V: ${recA?.valence.toFixed(2)}, A: ${recA?.arousal.toFixed(2)}) produces divergent recommendations: "${recA?.recommended_preset_id}" for User A vs "${recB?.recommended_preset_id}" for User B.`
+              ? `Proven: Same emotion context (V: ${recA?.valence.toFixed(2)}, A: ${recA?.arousal.toFixed(2)}) & identical Member 2 candidates produce divergent recommendations: "${recA?.recommended_preset_id}" for User A vs "${recB?.recommended_preset_id}" for User B.`
               : hasPreferenceDivergence
-              ? `Learned: User A preferred preset is "${prefA}" while User B is "${prefB}". Evaluate both users under identical emotion context to prove recommendation divergence.`
-              : "Proves that identical emotional inputs produce divergent visual presets based on each user's unique LinUCB feedback history."}
+              ? `Learned: User A preferred preset is "${prefA}" while User B is "${prefB}". Evaluate both users under identical candidate set to prove recommendation divergence.`
+              : "Proves that identical emotion context and candidate spaces produce divergent recommendations based on learned user preferences."}
           </p>
         </div>
 
@@ -140,6 +159,65 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
         >
           {isLoading ? "Querying..." : "↻ Compare Users"}
         </button>
+      </div>
+
+      {/* Shared Context Verification Criteria Bar */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "0.75rem",
+          padding: "0.75rem 1rem",
+          backgroundColor: "rgba(15, 23, 42, 0.8)",
+          borderRadius: "0.5rem",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          fontSize: "0.78rem",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "#94a3b8" }}>1. Same Emotion Context:</span>
+          <span
+            style={{
+              fontWeight: 700,
+              padding: "0.15rem 0.5rem",
+              borderRadius: "0.25rem",
+              backgroundColor: isSameEmotionContext ? "rgba(16, 185, 129, 0.2)" : "rgba(100, 116, 139, 0.15)",
+              color: isSameEmotionContext ? "#34d399" : "#64748b",
+            }}
+          >
+            {isSameEmotionContext ? "YES" : "NO"}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "#94a3b8" }}>2. Same Member 2 Candidates:</span>
+          <span
+            style={{
+              fontWeight: 700,
+              padding: "0.15rem 0.5rem",
+              borderRadius: "0.25rem",
+              backgroundColor: isSameCandidates ? "rgba(16, 185, 129, 0.2)" : "rgba(100, 116, 139, 0.15)",
+              color: isSameCandidates ? "#34d399" : "#64748b",
+            }}
+          >
+            {isSameCandidates ? "YES" : "NO"}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "#94a3b8" }}>3. Different Recommendation:</span>
+          <span
+            style={{
+              fontWeight: 700,
+              padding: "0.15rem 0.5rem",
+              borderRadius: "0.25rem",
+              backgroundColor: isDifferentRecommendation ? "rgba(16, 185, 129, 0.2)" : "rgba(100, 116, 139, 0.15)",
+              color: isDifferentRecommendation ? "#34d399" : "#64748b",
+            }}
+          >
+            {isDifferentRecommendation ? "YES" : "NO"}
+          </span>
+        </div>
       </div>
 
       {/* Side-by-Side Dual User Cards */}
@@ -174,7 +252,7 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
                 }}
               />
               <span style={{ fontWeight: 800, fontSize: "1rem", color: "#f8fafc" }}>User A</span>
-              <code style={{ fontSize: "0.7rem", color: "#94a3b8" }}>demo-user-a</code>
+              <code style={{ fontSize: "0.7rem", color: "#94a3b8" }}>demo-integration-user-a</code>
             </div>
             <span
               style={{
@@ -193,6 +271,36 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Current Emotion V/A:</span>
+              <span style={{ fontFamily: "monospace", color: "#38bdf8" }}>
+                {recA ? `V: ${recA.valence.toFixed(2)}, A: ${recA.arousal.toFixed(2)}` : "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Member 2 Candidates:</span>
+              <span style={{ fontSize: "0.75rem", color: "#cbd5e1" }}>
+                {recA?.candidates && recA.candidates.length > 0
+                  ? recA.candidates.join(", ")
+                  : "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Selected Visual:</span>
+              <span style={{ fontWeight: 700, color: "#f59e0b" }}>
+                {recA?.recommended_preset_id || "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Strategy:</span>
+              <span style={{ fontSize: "0.75rem", color: recA?.strategy === "linucb" ? "#c084fc" : "#34d399" }}>
+                {recA?.strategy === "linucb" ? "LinUCB Bandit" : recA?.strategy === "cold_start" ? "Cold Start" : "None"}
+              </span>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#94a3b8" }}>Preferred Preset:</span>
               <span style={{ fontWeight: 700, color: metaA?.accentColor || "#cbd5e1" }}>
@@ -226,13 +334,6 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
                   : "0.00"}
               </span>
             </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#94a3b8" }}>Latest Recommendation:</span>
-              <code style={{ color: "#38bdf8", fontSize: "0.75rem" }}>
-                {recA ? `${recA.recommended_preset_id} (V: ${recA.valence.toFixed(2)}, A: ${recA.arousal.toFixed(2)})` : stateA?.last_recommended_preset || "none"}
-              </code>
-            </div>
           </div>
         </div>
 
@@ -260,7 +361,7 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
                 }}
               />
               <span style={{ fontWeight: 800, fontSize: "1rem", color: "#f8fafc" }}>User B</span>
-              <code style={{ fontSize: "0.7rem", color: "#94a3b8" }}>demo-user-b</code>
+              <code style={{ fontSize: "0.7rem", color: "#94a3b8" }}>demo-integration-user-b</code>
             </div>
             <span
               style={{
@@ -279,6 +380,36 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Current Emotion V/A:</span>
+              <span style={{ fontFamily: "monospace", color: "#38bdf8" }}>
+                {recB ? `V: ${recB.valence.toFixed(2)}, A: ${recB.arousal.toFixed(2)}` : "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Member 2 Candidates:</span>
+              <span style={{ fontSize: "0.75rem", color: "#cbd5e1" }}>
+                {recB?.candidates && recB.candidates.length > 0
+                  ? recB.candidates.join(", ")
+                  : "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Selected Visual:</span>
+              <span style={{ fontWeight: 700, color: "#10b981" }}>
+                {recB?.recommended_preset_id || "None"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#94a3b8" }}>Strategy:</span>
+              <span style={{ fontSize: "0.75rem", color: recB?.strategy === "linucb" ? "#c084fc" : "#34d399" }}>
+                {recB?.strategy === "linucb" ? "LinUCB Bandit" : recB?.strategy === "cold_start" ? "Cold Start" : "None"}
+              </span>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#94a3b8" }}>Preferred Preset:</span>
               <span style={{ fontWeight: 700, color: metaB?.accentColor || "#cbd5e1" }}>
@@ -312,13 +443,6 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
                   : "0.00"}
               </span>
             </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#94a3b8" }}>Latest Recommendation:</span>
-              <code style={{ color: "#38bdf8", fontSize: "0.75rem" }}>
-                {recB ? `${recB.recommended_preset_id} (V: ${recB.valence.toFixed(2)}, A: ${recB.arousal.toFixed(2)})` : stateB?.last_recommended_preset || "none"}
-              </code>
-            </div>
           </div>
         </div>
       </div>
@@ -351,8 +475,9 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
         <div style={{ fontSize: "0.82rem", color: "#cbd5e1", lineHeight: 1.4 }}>
           {hasRecommendationDivergence ? (
             <>
-              <strong style={{ color: "#34d399" }}>Same-Context Recommendation Divergence Proven:</strong> Under
-              identical simulated emotion context (Valence: {recA?.valence.toFixed(2)}, Arousal: {recA?.arousal.toFixed(2)}),
+              <strong style={{ color: "#34d399" }}>Personalized Recommendation Divergence Proven:</strong> Under
+              identical simulated emotion context (Valence: {recA?.valence.toFixed(2)}, Arousal: {recA?.arousal.toFixed(2)})
+              and identical Member 2 candidates ({recA?.candidates?.join(", ")}),
               backend recommended <code style={{ color: "#f59e0b" }}>{recA?.recommended_preset_id}</code> for{" "}
               <strong>User A</strong> vs <code style={{ color: "#10b981" }}>{recB?.recommended_preset_id}</code> for{" "}
               <strong>User B</strong> based on distinct LinUCB exploration/exploitation models.
@@ -362,13 +487,13 @@ export const PersonalizationComparison: React.FC<PersonalizationComparisonProps>
               <strong style={{ color: "#c084fc" }}>Preference Divergence Learned:</strong> <strong>User A</strong>'s
               most positively rewarded preset is <code style={{ color: "#f59e0b" }}>{prefA}</code>, while{" "}
               <strong>User B</strong>'s is <code style={{ color: "#10b981" }}>{prefB}</code>. Request recommendations
-              for both users under the same emotion context to demonstrate active recommendation divergence.
+              for both users under the same emotion and candidate set to prove recommendation divergence.
             </>
           ) : (
             <>
-              <strong>Viva Script Tip:</strong> Give positive feedback to User A, then switch to User B,
-              give negative feedback to that preset, and give positive feedback to an alternative to prove
-              personalization divergence.
+              <strong>Evaluation Tip:</strong> Keep the same emotion context (e.g. Happy V=+0.70, A=+0.40) and candidate set.
+              Provide positive feedback to User A, then switch to User B and provide positive feedback to a different candidate.
+              Request recommendations again to prove personalization divergence.
             </>
           )}
         </div>

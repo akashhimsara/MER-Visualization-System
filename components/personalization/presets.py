@@ -1,10 +1,17 @@
 """
-Centralized Visual Preset ID Registry for Personalization Cold-Start.
+Visual Preset ID Registry and Integration Boundary Definitions.
 
-NOTE:
-These preset IDs are temporary mock presets for the initial cold-start milestone.
-They must later be replaced with the official visual preset registry owned and
-managed by the visualization component (Member 2).
+RESPONSIBILITY BOUNDARY:
+- Member 2 (Emotion-Aware Visualization Engine) answers:
+  "What visuals are suitable for this emotion?"
+  Member 2 filters the top-K emotion-safe visual candidates based on Valence/Arousal and audio profile.
+- Member 4 (Adaptive Personalization & User Analytics) answers:
+  "Among those suitable visuals, which is best for this particular user?"
+  Member 4 personalizes strictly within the Member 2 candidate set using LinUCB and user feedback.
+
+DEMO / FALLBACK MODE:
+When Member 2 candidate data is NOT supplied, Member 4 falls back to these 4 temporary
+mock preset IDs and quadrant mapping for the 50% viva demonstration.
 """
 
 PRESET_ENERGETIC_POSITIVE = "mock-energetic-positive"
@@ -20,6 +27,9 @@ MOCK_COLD_START_PRESETS = {
 }
 
 MOCK_ARM_PRESETS = list(MOCK_COLD_START_PRESETS.values())
+
+# Backward-compatible alias for final integration clarity
+DEMO_FALLBACK_VISUALS = MOCK_ARM_PRESETS
 
 # Maximum supported length for bounded database columns and API identifiers
 MAX_IDENTIFIER_LENGTH: int = 128

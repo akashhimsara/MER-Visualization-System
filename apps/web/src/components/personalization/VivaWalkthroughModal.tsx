@@ -13,35 +13,43 @@ export const VivaWalkthroughModal: React.FC<VivaWalkthroughModalProps> = ({
 
   const steps = [
     {
-      title: "Step 1 — Establish Baseline Preference for User A",
+      title: "Step 1 — Understand Architectural Boundaries & Context",
       items: [
-        "Select User A (demo-user-a) from the profile selector at the top.",
-        "Click the quick emotion preset 'High Positive / High Arousal' (Valence: 0.80, Arousal: 0.75).",
-        "Click 'Get Recommendation' — notice the Strategy is 'Cold Start' (heuristic default).",
-        "Click 'Like (+1.0 Reward)' to submit positive feedback.",
-        "Click 'Get Recommendation' again — notice the Strategy has automatically switched to 'LinUCB Bandit (Learned)' with a positive UCB score!",
-        "Click 'Like' once more to solidify User A's affinity for Energetic Positive.",
+        "Explain that Valence/Arousal (V/A) sliders represent SIMULATED Member 1 MER output.",
+        "Set the demo context to HAPPY (click the 'Happy / Radiant' button: Valence = +0.70, Arousal = +0.40).",
+        "Point to the 'SIMULATED MEMBER 2 OUTPUT' card: Member 2 evaluates the emotion and outputs 3 compatible candidates: COSMIC_BLOOM, PARTICLE_AURORA, NEON_MANDALA with default COSMIC_BLOOM.",
+        "Emphasize the core thesis: 'Member 2 determines what visuals are emotionally compatible; Member 4 determines which among those compatible visuals is best for this specific user.'",
       ],
     },
     {
-      title: "Step 2 — Introduce Divergent Feedback for User B",
+      title: "Step 2 — User A Cold Start & Preference Learning",
       items: [
-        "Switch to User B (demo-user-b) using the profile switcher.",
-        "Notice User B starts with 0 learning updates (clean isolated bandit state).",
-        "Keep the exact same emotion context: Valence = 0.80, Arousal = 0.75.",
-        "Click 'Get Recommendation' — User B receives the initial cold-start default.",
-        "Now click 'Dislike (-1.0 Reward)' — User B explicitly rejects this preset!",
-        "Click 'Get Recommendation' again — LinUCB penalizes the disliked arm and explores an alternative preset (e.g. Calm Positive or Tense Negative)!",
-        "Click 'Like' on the alternative preset for User B.",
+        "Select User A (demo-integration-user-a) from the profile selector at the top.",
+        "Click 'Get Recommendation' — initially observe Member 2's default visual (COSMIC_BLOOM) returned under the Cold Start strategy.",
+        "Provide positive feedback: click 'Like (+1.0 Reward)' to train User A's LinUCB model.",
+        "Click 'Get Recommendation' again — strategy now activates 'LinUCB Bandit' with a live UCB score.",
+        "Click 'Like' once more to solidify User A's strong affinity for COSMIC_BLOOM.",
       ],
     },
     {
-      title: "Step 3 — Viva Proof: Personalization Divergence",
+      title: "Step 3 — User B Under Identical Emotion Context & Candidate Set",
       items: [
-        "Look at the 'Personalization Divergence' comparison card.",
-        "Click 'Compare Users' to refresh both states from PostgreSQL.",
-        "Highlight the divergence badge:",
-        "Explain to the panel: When both users have learned distinct preferences, the badge shows 'PREFERENCE DIVERGENCE LEARNED'. When both users receive differing recommendations under the exact same emotion context (e.g. V=0.80, A=0.75), the badge confirms 'RECOMMENDATION DIVERGENCE PROVEN'!",
+        "Switch to User B (demo-integration-user-b). User B starts with clean, isolated state.",
+        "CRITICAL: Keep the EXACT same emotion (V = +0.70, A = +0.40) and identical Member 2 candidate set.",
+        "Click 'Get Recommendation' for User B — cold start initially suggests COSMIC_BLOOM.",
+        "Click 'Dislike (-1.0 Reward)' — User B rejects COSMIC_BLOOM!",
+        "Click 'Get Recommendation' again — LinUCB penalizes COSMIC_BLOOM and selects an alternative candidate (e.g. NEON_MANDALA or PARTICLE_AURORA) within the Member 2 candidate set.",
+        "Click 'Like' on the newly recommended candidate for User B to establish their preference.",
+      ],
+    },
+    {
+      title: "Step 4 — Core Proof: Personalized Recommendation Divergence",
+      items: [
+        "Inspect the 'Personalization Divergence' card and click '↻ Compare Users' to query PostgreSQL.",
+        "Verify all 3 criteria are satisfied: 1. Same Emotion Context = YES, 2. Same Member 2 Candidates = YES, 3. Different Recommendation = YES.",
+        "Confirm the badge shows 'PERSONALIZED RECOMMENDATION DIVERGENCE PROVEN'!",
+        "Explain to the panel: 'The difference in visual presentation does NOT come from different emotions or arbitrary random selection; it comes strictly from Member 4's personalized LinUCB user modeling constrained to Member 2's emotion-safe candidate space.'",
+        "Conclude with technical honesty: Member 3 transition smoothing and Member 2 final Three.js rendering are simulated previews and will be connected in group integration.",
       ],
     },
   ];
@@ -84,7 +92,7 @@ export const VivaWalkthroughModal: React.FC<VivaWalkthroughModalProps> = ({
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <span style={{ fontSize: "1.3rem" }}>🎓</span>
               <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#f8fafc" }}>
-                Viva / Presentation Demo Script
+                Interactive Walkthrough & Demo Guide
               </h2>
             </div>
             <p style={{ margin: "0.3rem 0 0 0", fontSize: "0.85rem", color: "#94a3b8" }}>

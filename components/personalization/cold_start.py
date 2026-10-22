@@ -1,8 +1,13 @@
 """
-Cold-Start Emotion-to-Preset Mapping Policy.
+Cold-Start Emotion-to-Preset Mapping Policy (Demo / Fallback Mode).
 
 Maps continuous valence and arousal values into visual preset selections
 using quadrant-based partitioning.
+
+NOTE: This quadrant mapper is used ONLY in demo/fallback mode when Member 2
+candidates are not supplied. In final integration mode, Member 2 provides
+a default_visual_id among its top-K candidates, and Member 4 selects that
+default visual directly during cold-start without secondary quadrant mapping.
 """
 
 from components.personalization.presets import (

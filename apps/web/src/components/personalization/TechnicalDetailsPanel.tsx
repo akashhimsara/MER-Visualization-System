@@ -7,6 +7,8 @@ interface TechnicalDetailsPanelProps {
   recommendation: RecommendationResponse | null;
   lastFeedback: FeedbackResponse | null;
   userId: string;
+  candidates?: string[];
+  defaultVisualId?: string;
 }
 
 export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
@@ -15,6 +17,8 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
   recommendation,
   lastFeedback,
   userId,
+  candidates = [],
+  defaultVisualId,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -50,7 +54,7 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <span style={{ fontSize: "1rem" }}>🔬</span>
           <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>
-            Technical Architecture & LinUCB Formulation
+            Technical Architecture & Candidate-Aware LinUCB Formulation
           </span>
           <span
             style={{
@@ -61,13 +65,14 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
               borderRadius: "0.25rem",
             }}
           >
-            Viva Defense Reference
+            Technical Architecture Reference
           </span>
         </div>
         <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-          {isOpen ? "▲ Collapse" : "▼ Expand (For Viva Technical Q&A)"}
+          {isOpen ? "▲ Collapse" : "▼ Expand (Technical Architecture Q&A)"}
         </span>
       </button>
+
 
       {/* Collapsible Content */}
       {isOpen && (
@@ -112,6 +117,16 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
             <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "0.4rem" }}>
               Dimension 0: Valence | Dimension 1: Arousal | Dimension 2: Constant Bias (1.0)
             </div>
+            <div style={{ marginTop: "0.6rem", fontSize: "0.75rem", color: "#cbd5e1" }}>
+              <strong>Candidate Source:</strong> Simulated Member 2 compatibility output
+              <br />
+              <strong>Eligible LinUCB Arms:</strong>{" "}
+              <code style={{ color: "#38bdf8" }}>{candidates.length > 0 ? candidates.join(", ") : "All arms"}</code>
+              <br />
+              <strong>Cold Start:</strong> Member 2 <code>default_visual_id</code> ({defaultVisualId || "fallback"})
+              <br />
+              <strong>Learned Mode:</strong> Disjoint LinUCB ranking strictly within eligible candidates
+            </div>
           </div>
 
           {/* Card 2: LinUCB Mathematical Formulation */}
@@ -127,7 +142,7 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
               2. Disjoint LinUCB Mathematical Engine
             </div>
             <p style={{ margin: "0 0 0.4rem 0", lineHeight: 1.4 }}>
-              For each visual arm <code style={{ color: "#f8fafc" }}>a</code>, ridge regression matrices are updated:
+              For each visual arm <code style={{ color: "#f8fafc" }}>a ∈ Candidates</code>, ridge regression matrices are updated:
             </p>
             <div
               style={{
@@ -146,11 +161,14 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
               θ̂_a = A_a⁻¹ b_a
             </div>
             <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "0.4rem" }}>
-              Decision Rule: a* = argmax [ θ̂_aᵀ x_t + α √(x_tᵀ A_a⁻¹ x_t) ] with α = 0.50
+              Decision Rule: a* = argmax_{'{a ∈ Candidates}'} [ θ̂_aᵀ x_t + α √(x_tᵀ A_a⁻¹ x_t) ] (α = 0.50)
+            </div>
+            <div style={{ marginTop: "0.5rem", fontSize: "0.72rem", color: "#94a3b8" }}>
+              <strong>Feedback Types:</strong> Explicit ratings/likes and behavioral dwell time supported by backend.
             </div>
           </div>
 
-          {/* Card 3: Active State & Identity Boundary */}
+          {/* Card 3: Responsibility Boundary */}
           <div
             style={{
               backgroundColor: "rgba(9, 13, 22, 0.6)",
@@ -160,27 +178,37 @@ export const TechnicalDetailsPanel: React.FC<TechnicalDetailsPanelProps> = ({
             }}
           >
             <div style={{ fontWeight: 700, color: "#10b981", marginBottom: "0.4rem" }}>
-              3. Runtime & Identity Scope
+              3. Component Boundaries & Ownership
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", fontSize: "0.78rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.78rem" }}>
               <div>
-                <strong>Active User:</strong> <code>{userId}</code>
+                <strong>Emotion-to-Visual Mapping:</strong> <span style={{ color: "#38bdf8" }}>Member 2 responsibility</span>
               </div>
               <div>
-                <strong>Persistence Layer:</strong> PostgreSQL (Alembic <code>0001_personalization</code>)
+                <strong>User Preference Ranking:</strong> <span style={{ color: "#a855f7" }}>Member 4 responsibility</span>
               </div>
-              <div>
-                <strong>Recommendation ID format:</strong> Fixed 36-char deterministic UUID5
+              <div
+                style={{
+                  backgroundColor: "rgba(56, 189, 248, 0.08)",
+                  padding: "0.4rem 0.6rem",
+                  borderRadius: "0.3rem",
+                  border: "1px solid rgba(56, 189, 248, 0.2)",
+                  color: "#e2e8f0",
+                  fontStyle: "italic",
+                  fontSize: "0.75rem",
+                  marginTop: "0.2rem",
+                }}
+              >
+                "Member 4 does not generate emotion-to-visual mappings in final integration."
               </div>
-              <div>
-                <strong>Identity Boundary:</strong> Caller-supplied <code>user_id</code> (Strict 128-char limit; JWT authentication scheduled for upcoming auth milestone).
+              <div style={{ marginTop: "0.2rem" }}>
+                <strong>Active User:</strong> <code>{userId}</code> | <strong>Persistence:</strong> PostgreSQL
               </div>
               {recommendation && (
                 <div>
-                  <strong>Active Inference:</strong>{" "}
+                  <strong>Active Choice:</strong>{" "}
                   <code style={{ color: "#38bdf8" }}>{recommendation.recommended_preset_id}</code>{" "}
-                  (Strategy: <strong style={{ color: recommendation.strategy === "linucb" ? "#c084fc" : "#34d399" }}>{recommendation.strategy}</strong>
-                  {recommendation.score !== null ? `, UCB Score: ${recommendation.score.toFixed(4)}` : ""})
+                  ({recommendation.strategy === "linucb" ? "LinUCB Selected" : "Member 2 Cold Start Default"})
                 </div>
               )}
               {lastFeedback && (
