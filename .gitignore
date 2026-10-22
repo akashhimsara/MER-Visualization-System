@@ -10,11 +10,10 @@ __pycache__/
 .pytest_cache/
 
 # Environment variables
-.env
-.env.*
 !.env.example
 
 # Data
+temp_auto_push.bat
 data/raw/
 data/interim/
 data/processed/
@@ -31,6 +30,8 @@ model_artifacts/*
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 pyrightconfig.json
+.gitignore
+branch_structure.json
+config.bat
