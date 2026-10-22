@@ -129,7 +129,26 @@ class AdaptivePersonalizationEngine:
         user_state: Optional[UserPersonalizationState] = None,
         max_history_size: int = DEFAULT_MAX_HISTORY_SIZE,
     ):
-        self.arms: List[str] = list(arms) if arms is not None else list(MOCK_ARM_PRESETS)
+        self.context_dimension: int = int(context_dimension)
+        self.alpha: float = float(alpha)
+        self.min_updates_for_linucb: int = max(1, int(min_updates_for_linucb))
+
+        if model is not None:
+            self.model = model
+            model_arms = list(model.arms)
+            if arms is not None:
+                self.arms = list(dict.fromkeys(list(arms) + model_arms))
+                self.model.ensure_arms(self.arms)
+            else:
+                self.arms = model_arms
+        else:
+            self.arms = list(arms) if arms is not None else list(MOCK_ARM_PRESETS)
+            self.model = LinUCB(
+                arms=self.arms,
+                context_dimension=self.context_dimension,
+                alpha=self.alpha,
+            )
+
         for arm in self.arms:
             if len(str(arm).strip()) > MAX_IDENTIFIER_LENGTH:
                 raise ValueError(
@@ -139,16 +158,6 @@ class AdaptivePersonalizationEngine:
             raise ValueError(
                 f"user_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
-
-        self.context_dimension: int = int(context_dimension)
-        self.alpha: float = float(alpha)
-        self.min_updates_for_linucb: int = max(1, int(min_updates_for_linucb))
-
-        self.model: LinUCB = model or LinUCB(
-            arms=self.arms,
-            context_dimension=self.context_dimension,
-            alpha=self.alpha,
-        )
 
         self.successful_update_count: int = 0
         self.pending_interactions: List[Dict[str, Any]] = []
@@ -183,15 +192,23 @@ class AdaptivePersonalizationEngine:
         self,
         tier3_event: Dict[str, Any],
         recommendation_sequence: Optional[int] = None,
+        candidate_visual_ids: Optional[Sequence[str]] = None,
+        default_visual_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a Contract v1.1 Recommendation event from a MER Tier 3 event.
 
-        - Builds numerical context vector [valence, arousal, bias].
-        - If successful_update_count < min_updates_for_linucb: selects preset via cold-start.
-        - If successful_update_count >= min_updates_for_linucb: selects preset via LinUCB.
-        - Stores the interaction context in memory for later reward learning.
-        - Updates the user personalization state and bounded recommendation history.
+        Modes:
+        1. Final Member 2 Integration Mode (when candidate_visual_ids is provided):
+           - Member 2 owns emotion-to-visual mapping and supplies top-K emotion-safe candidate IDs.
+           - For cold-start (successful_update_count < min_updates_for_linucb): returns Member 2's default_visual_id.
+           - Once learned (successful_update_count >= min_updates_for_linucb): ranks candidate_visual_ids via LinUCB.
+           - Never selects a visual outside candidate_visual_ids.
+        2. Demo / Fallback Mode (when candidate_visual_ids is None):
+           - Preserves existing 50% viva demo quadrant mapping to mock presets.
+
+        Contract v1.1:
+        - Output recommended_preset_id carries the selected visual/preset identifier.
         """
         session_id = str(tier3_event["session_id"]).strip()
         if len(session_id) > MAX_IDENTIFIER_LENGTH:
@@ -207,21 +224,92 @@ class AdaptivePersonalizationEngine:
             seq = self._session_sequences.get(session_id, 0)
             self._session_sequences[session_id] = seq + 1
 
+        # Candidate parameters validation and normalization
+        normalized_candidates: Optional[List[str]] = None
+        clean_default_visual_id: Optional[str] = None
+
+        if candidate_visual_ids is not None:
+            if len(candidate_visual_ids) == 0:
+                raise ValueError("candidate_visual_ids cannot be empty.")
+
+            seen_candidates: Set[str] = set()
+            normalized_candidates = []
+            for cid in candidate_visual_ids:
+                if cid is None:
+                    raise ValueError("candidate_visual_ids cannot contain None.")
+                clean_cid = str(cid).strip()
+                if not clean_cid:
+                    raise ValueError("candidate_visual_ids cannot contain empty or blank strings.")
+                if len(clean_cid) > MAX_IDENTIFIER_LENGTH:
+                    raise ValueError(
+                        f"candidate visual_id '{clean_cid}' exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+                    )
+                if clean_cid not in seen_candidates:
+                    seen_candidates.add(clean_cid)
+                    normalized_candidates.append(clean_cid)
+
+            if default_visual_id is None:
+                raise ValueError("default_visual_id must be provided when candidate_visual_ids is specified.")
+            clean_default_visual_id = str(default_visual_id).strip()
+            if not clean_default_visual_id:
+                raise ValueError("default_visual_id cannot be empty or whitespace-only.")
+            if len(clean_default_visual_id) > MAX_IDENTIFIER_LENGTH:
+                raise ValueError(
+                    f"default_visual_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
+                )
+            if clean_default_visual_id not in seen_candidates:
+                raise ValueError(
+                    f"default_visual_id '{clean_default_visual_id}' must exist inside candidate_visual_ids."
+                )
+
+            # Ensure all candidates exist in LinUCB model and in self.arms
+            self.model.ensure_arms(normalized_candidates)
+            for arm in normalized_candidates:
+                if arm not in self.arms:
+                    self.arms.append(arm)
+        else:
+            if default_visual_id is not None:
+                raise ValueError("default_visual_id cannot be specified without candidate_visual_ids.")
+
         # 1. Build context vector from Tier 3 continuous emotion
         ctx: ContextVector = build_context_vector(tier3_event)
 
-        # 2. Decide selection policy based on learning state
-        if not self.is_linucb_active:
-            valence = float(tier3_event["emotion"]["valence"])
-            arousal = float(tier3_event["emotion"]["arousal"])
-            preset_id = select_cold_start_preset(valence, arousal)
-            strategy = "cold_start"
-            score = None
+        # 2. Decide selection policy based on learning state & integration mode
+        preset_id: str
+        strategy: str
+        score: Optional[float]
+
+        if candidate_visual_ids is not None:
+            # Final Member 2 Integration Mode:
+            if not self.is_linucb_active:
+                # Cold-start policy: Member 2 default candidate
+                if clean_default_visual_id is None:
+                    raise ValueError("default_visual_id must be provided when candidate_visual_ids is specified.")
+                preset_id = clean_default_visual_id
+                strategy = "cold_start"
+                score = None
+            else:
+                # LinUCB ranking strictly within candidate_visual_ids
+                if normalized_candidates is None:
+                    raise ValueError("candidate_visual_ids cannot be empty.")
+                selection: LinUCBSelection = self.model.select_arm(ctx, eligible_arms=normalized_candidates)
+                preset_id = selection.selected_arm
+                strategy = "linucb"
+                score = float(selection.selected_score)
         else:
-            selection: LinUCBSelection = self.model.select_arm(ctx)
-            preset_id = selection.selected_arm
-            strategy = "linucb"
-            score = float(selection.selected_score)
+            # Demo / Fallback Mode (Member 2 candidates not supplied):
+            if not self.is_linucb_active:
+                valence = float(tier3_event["emotion"]["valence"])
+                arousal = float(tier3_event["emotion"]["arousal"])
+                preset_id = select_cold_start_preset(valence, arousal)
+                strategy = "cold_start"
+                score = None
+            else:
+                selection = self.model.select_arm(ctx)
+                preset_id = selection.selected_arm
+                strategy = "linucb"
+                score = float(selection.selected_score)
+
 
         # 3. Build Contract v1.1 Recommendation event
         rec_event = build_recommendation_event(
@@ -246,6 +334,8 @@ class AdaptivePersonalizationEngine:
             "score": score,
             "feedback_applied": False,
         }
+        if normalized_candidates is not None:
+            interaction["candidate_visual_ids"] = list(normalized_candidates)
         self.pending_interactions.append(interaction)
 
         # 5. Record to user personalization state
@@ -278,22 +368,27 @@ class AdaptivePersonalizationEngine:
         5. If reward is numerical: updates the LinUCB model, marks interaction as processed,
            increments successful_update_count, and updates user state metrics.
         """
-        feedback_id = feedback_event.get("feedback_id")
-        session_id = feedback_event.get("session_id")
-        preset_id = feedback_event.get("preset_id")
+        raw_feedback_id = feedback_event.get("feedback_id")
+        raw_session_id = feedback_event.get("session_id")
+        raw_preset_id = feedback_event.get("preset_id")
 
-        if feedback_id and len(str(feedback_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        feedback_id: Optional[str] = str(raw_feedback_id).strip() if raw_feedback_id is not None else None
+        session_id: str = str(raw_session_id).strip() if raw_session_id is not None else ""
+        preset_id: str = str(raw_preset_id).strip() if raw_preset_id is not None else ""
+
+        if feedback_id and len(feedback_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"feedback_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
-        if session_id and len(str(session_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        if len(session_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"session_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
-        if preset_id and len(str(preset_id).strip()) > MAX_IDENTIFIER_LENGTH:
+        if len(preset_id) > MAX_IDENTIFIER_LENGTH:
             raise ValueError(
                 f"preset_id exceeds maximum supported length of {MAX_IDENTIFIER_LENGTH} characters."
             )
+
 
         # 1. Duplicate feedback ID check
         if feedback_id and feedback_id in self.processed_feedback_ids:
